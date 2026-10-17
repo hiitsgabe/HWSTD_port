@@ -19,7 +19,7 @@ The game renders entirely in software, so it does not need a GPU or OpenGL.
 | A | Mouse click |
 | L1 (hold) | Slow cursor |
 | D-pad | Arrow keys (race) |
-| B / Select | Esc |
-| Start | Enter |
+| B / Start | Enter (skip intro, confirm) |
+| Select | Esc (back, leave race; quits at the intro) |
 | Y | F1 (change race resolution: 640x480 / 320x240 / 320x200) |
 | Select + Start | Quit |

@@ -21,6 +21,8 @@ Verified in an Ubuntu 24.04 arm64 VM (OrbStack, Apple M1) with box64 (git main) 
 - box64 needs its bundled x86_64 `libgcc_s`/`libstdc++` (`box64/x64lib`, via `BOX64_LD_LIBRARY_PATH`).
 - Wine processes end with SIGKILL even on success, so first-run setup checks the registry files instead of exit codes.
 - First launch: about 2 minutes (image + wineboot). Later launches: about 50 seconds to the intro.
+- The game crashes (null read at `004290b2`) while initialising the handheld's pad through DirectInput, so first-run setup disables WineBus joysticks; gptokeyb feeds keyboard + mouse instead. The launcher must export `SDL_GAMECONTROLLERCONFIG` for gptokeyb to see the pad.
+- The screen is 720x480: the game runs inside a 640x480 Wine desktop with `WESTON_KIOSK_NO_RESIZE=1` so it is centred. Inside that desktop Esc at the intro quits the game, so Esc is only on Select.
 
 ## Layout
 
@@ -50,6 +52,6 @@ Then copy `ports/hwstd/*` into the device's `ports/` folder, and put your `.iso`
 
 - [x] Runs under box64 + Wine on arm64 (VM)
 - [x] Package skeleton, ISO extraction
-- [x] Launches on device (Knulli gladiator-ii, H700, kernel 4.9) under Westonpack
-- [ ] On device: picture, audio, controls, FPS
+- [x] Plays on device (Knulli gladiator-ii, RG34XX-SP, H700, kernel 4.9): picture centred, audio, controls
+- [ ] FPS measurement, other CFWs (muOS, ROCKNIX, ...)
 - [ ] Controls for devices without analog sticks

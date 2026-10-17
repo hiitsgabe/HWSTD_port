@@ -15,6 +15,7 @@ fi
 source $controlfolder/control.txt
 [ -f "${controlfolder}/mod_${CFW_NAME}.txt" ] && source "${controlfolder}/mod_${CFW_NAME}.txt"
 get_controls
+export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 
 GAMEDIR="/$directory/ports/hwstd"
 cd "$GAMEDIR"
@@ -57,9 +58,16 @@ setup_prefix() {
   # The game draws in software through DirectDraw: Wine's GDI path needs no GPU.
   "$BOX64" "$WINE" reg add 'HKCU\Software\Wine\Direct3D' /v renderer /d gdi /f
   "$BOX64" "$WINE" reg add 'HKLM\Software\Mattel\Stunt Track Driver\1.0' /f
+  # Hide joysticks from Wine: the game crashes (null read at 004290b2) initialising the
+  # handheld's pad through DirectInput. gptokeyb feeds it keyboard + mouse instead.
+  for v in DisableHidraw DisableInput; do
+    "$BOX64" "$WINE" reg add 'HKLM\System\CurrentControlSet\Services\WineBus' /v $v /t REG_DWORD /d 1 /f
+  done
+  "$BOX64" "$WINE" reg add 'HKLM\System\CurrentControlSet\Services\WineBus' /v 'Enable SDL' /t REG_DWORD /d 0 /f
   "$BOX64" "$WINESERVER" -w
   grep -q '"renderer"="gdi"' "$WINEPREFIX/user.reg" || return 1
   grep -qi 'Mattel\\\\Stunt Track Driver' "$WINEPREFIX/system.reg" || return 1
+  grep -q '"DisableInput"=dword:00000001' "$WINEPREFIX/system.reg" || return 1
   touch "$WINEPREFIX/.installed"
 }
 
@@ -105,11 +113,16 @@ $ESUDO mount "$controlfolder/libs/${weston_runtime}.squashfs" "${weston_dir}"
 $GPTOKEYB "stunt.exe" -c "$GAMEDIR/hwstd.gptk" &
 pm_platform_helper "$BOX64"
 
+# The game is 640x480 (4:3); the screen can be wider (720x480 on the RG34XX-SP).
+# A 640x480 Wine desktop that Weston's kiosk shell doesn't resize gets centred
+# (pillarboxed); without the desktop the game sticks to the left edge.
+# Inside the desktop, Esc during the intro quits the game, so hwstd.gptk keeps
+# Esc off the "skip" buttons (A/B/Start skip, Select is Esc).
 cd "$GAMEDIR/gamedata"
-$ESUDO env $weston_dir/westonwrap.sh drm gl kiosk system \
+$ESUDO env WESTON_KIOSK_NO_RESIZE=1 $weston_dir/westonwrap.sh drm gl kiosk system \
   WINEPREFIX="$WINEPREFIX" WINEDEBUG="$WINEDEBUG" WINEDLLOVERRIDES="$WINEDLLOVERRIDES" \
   BOX64_LOG=0 BOX64_NOBANNER=1 BOX64_LD_LIBRARY_PATH="$BOX64_LD_LIBRARY_PATH" \
-  "$BOX64" "$WINE" stunt.exe
+  "$BOX64" "$WINE" explorer /desktop=hwstd,640x480 stunt.exe
 
 "$BOX64" "$WINESERVER" -k 2>/dev/null
 unmount_all
