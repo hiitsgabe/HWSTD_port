@@ -101,24 +101,7 @@ StuntLauncher applies the same configuration that works on Linux (Box64 + Wine 1
 | Resolution | 640x480 X screen (the game runs at 640x480; F1 switches to 320x240) |
 | Audio | Winlator's ALSA, output to Android. Without audio the game stops at "Sound card not found" |
 
-The Wine Mono prompt did not show up in testing: Winlator's prefix comes ready.
-
-## Testing
-
-Done on 2026-10-17 on an arm64 Android 14 emulator (Pixel 7 AVD, M1 Mac), with an APK built from scratch by the script:
-
-| Item | Result |
-|---|---|
-| APK build from scratch (`build_apk.sh`) | OK, 162 MB. Moving the asset paths adds about 45 s to the build |
-| First launch: installs system files, creates the container, opens the picker | OK |
-| ISO copy and direct `stunt.exe` launch | OK (the extractor was also checked on a Mac: 246 files, md5 matches the ISO) |
-| Menus by touch (touchpad) | OK after the grab fix, in all 4 launches tested (2 of them clean installs) |
-| 3D race, accelerating with the on-screen button | OK |
-| Game Settings: hide overlay, stretch screen, saved across launches | OK |
-| Own id `com.hwstd.td` installed next to a `com.winlator` app | OK: both open; with the new id the game reaches the race |
-| Gamepad | **Not tested**: the emulator has no virtual gamepad. The mapping follows Winlator's profile format, but still needs a test on a device with a controller |
-| Sound | Not checked (no audible output on the emulator); the game did not stop at "Sound card not found" |
-| Physical device and performance | Not tested |
+Winlator's prefix comes ready, so there is no Wine Mono prompt.
 
 ## License
 
