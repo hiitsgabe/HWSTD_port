@@ -12,3 +12,4 @@ ports/hwstd/hwstd/log.txt
 *.iso
 *.ISO
 .DS_Store
+dist/

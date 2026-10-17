@@ -2,6 +2,19 @@
 
 Runs the 1998 Windows game *Hot Wheels Stunt Track Driver* on ARM Linux handhelds (Anbernic H700 family: RG35XXSP, RG34XXSP, …) as a [PortMaster](https://portmaster.games) package, using box64 + Wine. Game files are never included: the user supplies their own CD image.
 
+| | |
+|--|--|
+| ![Main menu](docs/screenshots/menu.png) | ![Track select](docs/screenshots/track_select.png) |
+| ![Car select](docs/screenshots/car_select.png) | ![Race](docs/screenshots/race.png) |
+
+## Install (PortMaster)
+
+1. Download `hwstd.zip` from the [latest release](https://github.com/hiitsgabe/HWSTD_port/releases/latest) and extract it into your `ports/` folder (it creates `Hot Wheels Stunt Track Driver.sh` and `hwstd/`).
+2. Copy everything inside the CD's `setup/hot98/` folder (`stunt.exe`, `data`, `menudata`, `saves`) into `ports/hwstd/gamedata/`, or drop the CD image (`.iso`) into `ports/hwstd/` and the port extracts it.
+3. Refresh the game list and start *Hot Wheels Stunt Track Driver* from Ports. The first launch prepares Wine and takes a couple of minutes.
+
+Needs PortMaster's Westonpack runtime (`weston_pkg_0.2`), downloaded automatically when missing.
+
 ## Why it works
 
 `setup/hot98/stunt.exe` on the CD imports only `DDRAW` (`DirectDrawCreate`, `IDirectDraw2`), `DINPUT` and `DSOUND`. There is no Direct3D or Glide: the 3D is rendered in software into an 8-bit 640x480 surface (F1 in-race switches to 320x240 / 320x200). So Wine can present it through its GDI DirectDraw path (`HKCU\Software\Wine\Direct3D\renderer=gdi`) with no GPU at all, which sidesteps the Mali-G31 (GLES only, no Vulkan).
@@ -27,26 +40,33 @@ Verified in an Ubuntu 24.04 arm64 VM (OrbStack, Apple M1) with box64 (git main) 
 ## Layout
 
 ```
-ports/hwstd/                      PortMaster package (zip root)
+ports/hwstd/                      PortMaster port (same layout as PortMaster-New's ports/<name>/)
   Hot Wheels Stunt Track Driver.sh  launcher
   port.json, README.md, gameinfo.xml, screenshot.png
   hwstd/
     hwstd.gptk                    controls
     tools/isoextract.py           stdlib-only ISO9660 extractor (first run)
     licenses/
-    box64/, wine/                 fetched by tools/fetch_deps.sh (gitignored)
+    box64/, wine.squashfs         built by tools/fetch_deps.sh (gitignored)
 tools/
-  fetch_deps.sh                   build box64 (Debian bookworm container) + fetch pruned Wine
+  fetch_deps.sh                   build box64 (native arm64 or Ubuntu 22.04 container) + Wine squashfs
+  package.sh                      dist/hwstd.zip for manual installs / releases
   test_isoextract.sh              extractor check against a real mount (macOS)
+android/                          Android APK build (Winlator fork), see android/README.md
+docs/screenshots/
+.github/workflows/
+  portmaster.yml                  builds hwstd.zip on PRs and main (artifact)
+  release.yml                     manual: builds and publishes a GitHub release
 ```
 
 ## Build
 
 ```bash
 tools/fetch_deps.sh
+tools/package.sh
 ```
 
-Then copy `ports/hwstd/*` into the device's `ports/` folder, and put your `.iso` in `ports/hwstd/`.
+`dist/hwstd.zip` is the same zip the release ships. CI builds it on every PR and push to main (artifact `portmaster-zip`); run the **Build and Release** workflow to publish a release.
 
 ## Status
 

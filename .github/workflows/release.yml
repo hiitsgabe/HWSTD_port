@@ -1,0 +1,56 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version, e.g. 1.0.0 (default 1.0.<run number>)
+        type: string
+        default: ''
+
+jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.TAG }}
+    steps:
+      - name: Resolve version
+        id: resolve
+        run: echo "TAG=v${{ inputs.version || format('1.0.{0}', github.run_number) }}" >> "$GITHUB_OUTPUT"
+
+  build-portmaster:
+    uses: ./.github/workflows/portmaster.yml
+    with:
+      ref: ${{ github.sha }}
+
+  release:
+    needs: [resolve-version, build-portmaster]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download PortMaster zip
+        uses: actions/download-artifact@v4
+        with:
+          name: portmaster-zip
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Hot Wheels Stunt Track Driver port ${{ needs.resolve-version.outputs.tag }}
+          body: |
+            Runs the original 1998 Windows game through box64 + Wine. **Game files are not included**: you need your own copy of the CD.
+
+            | Platform | File | Notes |
+            |--|--|--|
+            | 🎮 PortMaster (ARM64 handhelds) | `hwstd.zip` | Tested on Knulli (RG34XX-SP, H700). Needs the Westonpack runtime (`weston_pkg_0.2`), which PortMaster downloads. |
+
+            ### PortMaster install
+            1. Extract `hwstd.zip` into your `ports/` folder (it creates `Hot Wheels Stunt Track Driver.sh` and `hwstd/`).
+            2. Copy everything inside the CD's `setup/hot98/` folder into `ports/hwstd/gamedata/`, or drop the CD image (`.iso`) into `ports/hwstd/`.
+            3. Refresh the game list and start it from Ports. The first launch prepares Wine and takes a couple of minutes.
+          files: dist/hwstd.zip
+          prerelease: false

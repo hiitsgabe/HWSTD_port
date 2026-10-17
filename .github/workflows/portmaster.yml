@@ -1,0 +1,62 @@
+name: Build PortMaster package
+
+on:
+  # Build on PRs and main so the zip can be tried on a device before release.
+  pull_request:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ports/**'
+      - 'tools/**'
+      - '.github/workflows/portmaster.yml'
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to build (default branch when empty)
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build (default branch when empty)
+        type: string
+        default: ''
+
+jobs:
+  build-portmaster:
+    # Native arm64 runner: box64 and mksquashfs run without docker, and
+    # Ubuntu 22.04 keeps box64's glibc requirement at 2.35.
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git cmake build-essential python3 squashfs-tools zip binutils
+
+      - name: Fetch box64 and Wine
+        run: tools/fetch_deps.sh
+
+      - name: Verify package contents
+        run: |
+          set -euo pipefail
+          P=ports/hwstd/hwstd
+          file "$P/box64/box64" | grep -q 'ARM aarch64' || { echo "::error::box64 is not aarch64"; exit 1; }
+          echo "glibc needed by box64: $(objdump -T "$P/box64/box64" | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1)"
+          unsquashfs -l "$P/wine.squashfs" | grep -q 'lib/wine/x86_64-unix/ntdll.so' || { echo "::error::wine.squashfs has no ntdll.so"; exit 1; }
+          python3 -I -m json.tool ports/hwstd/port.json > /dev/null
+          bash -n "ports/hwstd/Hot Wheels Stunt Track Driver.sh"
+
+      - name: Create zip
+        run: tools/package.sh
+
+      - name: Upload PortMaster zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: portmaster-zip
+          path: dist/hwstd.zip
+          retention-days: 30
