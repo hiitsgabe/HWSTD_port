@@ -15,6 +15,11 @@ Runs the 1998 Windows game *Hot Wheels Stunt Track Driver* on ARM Linux handheld
 
 Needs PortMaster's Westonpack runtime (`weston_pkg_0.2`), downloaded automatically when missing.
 
+## Install (macOS, Windows)
+
+- **macOS** (`HWSTD-macos.zip`): an app with a bundled x86_64 Wine (Gcenx build; Rosetta 2 on Apple Silicon). Unsigned, so right-click → Open the first time. It asks for your `.iso` on first launch and keeps the game and Wine prefix in `~/Library/Application Support/HWSTD`.
+- **Windows 10/11** (`HWSTD-windows.zip`): `Install.cmd` mounts your `.iso`, copies `setup/hot98` into `game\` and adds [cnc-ddraw](https://github.com/FunkyFr3sh/cnc-ddraw) so the 8-bit DirectDraw graphics work on modern Windows; `Play.cmd` starts it. No admin rights needed (the game runs without its registry key).
+
 ## Why it works
 
 `setup/hot98/stunt.exe` on the CD imports only `DDRAW` (`DirectDrawCreate`, `IDirectDraw2`), `DINPUT` and `DSOUND`. There is no Direct3D or Glide: the 3D is rendered in software into an 8-bit 640x480 surface (F1 in-race switches to 320x240 / 320x200). So Wine can present it through its GDI DirectDraw path (`HKCU\Software\Wine\Direct3D\renderer=gdi`) with no GPU at all, which sidesteps the Mali-G31 (GLES only, no Vulkan).
@@ -53,10 +58,13 @@ tools/
   package.sh                      dist/hwstd.zip for manual installs / releases
   test_isoextract.sh              extractor check against a real mount (macOS)
 android/                          Android APK build (Winlator fork), see android/README.md
+macos/                            app launcher + Info.plist (tools/build_macos.sh -> dist/HWSTD-macos.zip)
+windows/                          installer scripts + cnc-ddraw config (tools/build_windows.sh -> dist/HWSTD-windows.zip)
 docs/screenshots/
 .github/workflows/
   portmaster.yml                  builds hwstd.zip on PRs and main (artifact)
-  release.yml                     manual: builds and publishes a GitHub release
+  desktop.yml                     builds the macOS and Windows zips
+  release.yml                     manual: builds everything and publishes a GitHub release
 ```
 
 ## Build

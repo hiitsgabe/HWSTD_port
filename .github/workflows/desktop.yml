@@ -1,0 +1,77 @@
+name: Build desktop packages (macOS, Windows)
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+    paths:
+      - 'macos/**'
+      - 'windows/**'
+      - 'tools/build_macos.sh'
+      - 'tools/build_windows.sh'
+      - '.github/workflows/desktop.yml'
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to build (default branch when empty)
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build (default branch when empty)
+        type: string
+        default: ''
+
+jobs:
+  build-macos:
+    # ditto keeps the app bundle's symlinks; Wine itself is the Gcenx x86_64 build.
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Build app
+        run: tools/build_macos.sh
+
+      - name: Verify app
+        run: |
+          set -euo pipefail
+          APP="dist/Hot Wheels Stunt Track Driver.app"
+          plutil -lint "$APP/Contents/Info.plist"
+          [ -x "$APP/Contents/MacOS/launcher" ] || { echo "::error::launcher missing"; exit 1; }
+          file "$APP/Contents/Resources/wine/bin/wine" | grep -q x86_64 || { echo "::error::wine is not x86_64"; exit 1; }
+
+      - name: Upload macOS zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-zip
+          path: dist/HWSTD-macos.zip
+          retention-days: 30
+
+  build-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Build zip
+        run: tools/build_windows.sh
+
+      - name: Verify zip
+        run: |
+          set -euo pipefail
+          for f in Install.cmd Play.cmd install.ps1 README.txt cnc-ddraw/ddraw.dll cnc-ddraw/ddraw.ini cnc-ddraw/LICENSE; do
+            unzip -l dist/HWSTD-windows.zip "HWSTD/$f" > /dev/null || { echo "::error::$f missing"; exit 1; }
+          done
+
+      - name: Upload Windows zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: dist/HWSTD-windows.zip
+          retention-days: 30

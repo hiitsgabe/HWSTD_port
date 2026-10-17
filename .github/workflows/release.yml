@@ -29,8 +29,13 @@ jobs:
       ref: ${{ github.sha }}
     secrets: inherit
 
+  build-desktop:
+    uses: ./.github/workflows/desktop.yml
+    with:
+      ref: ${{ github.sha }}
+
   release:
-    needs: [resolve-version, build-portmaster, build-android]
+    needs: [resolve-version, build-portmaster, build-android, build-desktop]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -47,6 +52,18 @@ jobs:
           name: android-apk
           path: dist/
 
+      - name: Download macOS zip
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-zip
+          path: dist/
+
+      - name: Download Windows zip
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-zip
+          path: dist/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -60,6 +77,8 @@ jobs:
             |--|--|--|
             | 🎮 PortMaster (ARM64 handhelds) | `hwstd.zip` | Tested on Knulli (RG34XX-SP, H700). Needs the Westonpack runtime (`weston_pkg_0.2`), which PortMaster downloads. |
             | 🤖 Android (arm64) | `hwstd-android-arm64.apk` | Built on Winlator (Wine + Box64). Replaces an installed Winlator (same package id). Tested on an Android 14 emulator. |
+            | 🍎 macOS (Apple Silicon via Rosetta 2, Intel) | `HWSTD-macos.zip` | App with a bundled Wine. Unsigned: right-click → Open the first time. |
+            | 🪟 Windows 10/11 | `HWSTD-windows.zip` | Installer copies the game from your ISO and adds cnc-ddraw. No admin rights needed. |
 
             ### PortMaster install
             1. Extract `hwstd.zip` into your `ports/` folder (it creates `Hot Wheels Stunt Track Driver.sh` and `hwstd/`).
@@ -74,4 +93,15 @@ jobs:
           files: |
             dist/hwstd.zip
             dist/hwstd-android-arm64.apk
+            dist/HWSTD-macos.zip
+            dist/HWSTD-windows.zip
+
+            ### macOS install
+            1. Unzip `HWSTD-macos.zip` and move **Hot Wheels Stunt Track Driver** to Applications.
+            2. The app is not signed: right-click it → **Open** the first time (or run `xattr -cr "/Applications/Hot Wheels Stunt Track Driver.app"`). Apple Silicon needs Rosetta 2.
+            3. Pick your CD image (`.iso`) when asked. The first launch prepares Wine.
+
+            ### Windows install
+            1. Unzip `HWSTD-windows.zip`, put your CD image (`.iso`) in the `HWSTD` folder (or pick it when asked) and run `Install.cmd`.
+            2. Play with `Play.cmd`.
           prerelease: false
