@@ -113,11 +113,23 @@ $ESUDO mount "$controlfolder/libs/${weston_runtime}.squashfs" "${weston_dir}"
 $GPTOKEYB "stunt.exe" -c "$GAMEDIR/hwstd.gptk" &
 pm_platform_helper "$BOX64"
 
+# Races always run at 640x480: lines 3-4 of saves/config.dat hold the race
+# resolution (F1 used to cycle it) and the low modes draw 320x200 in a corner.
+cfg="$GAMEDIR/gamedata/saves/config.dat"
+[ -f "$cfg" ] && sed -i '3s/^[0-9]*/0/;4s/^[0-9]*/0/' "$cfg"
+
+# A 640x480 Wine desktop that Weston's kiosk shell doesn't resize gets centred on
+# wider screens (720x480 on the RG34XX-SP). Esc quits the game from its menus (and
+# inside the desktop, sometimes from the intro), so B goes through tools/bkey.py
+# (gptokeyb sends F12): Esc during a race, Space everywhere else.
+# gptokeyb's quit combo runs `pkill -f stunt.exe`, so "stunt.exe" must not appear
+# in westonwrap's command line (it would die before stopping Weston: black screen);
+# tools/play.sh builds the game command from BOX64 and WINE instead.
 cd "$GAMEDIR/gamedata"
-$ESUDO env $weston_dir/westonwrap.sh drm gl kiosk system \
+$ESUDO env WESTON_KIOSK_NO_RESIZE=1 $weston_dir/westonwrap.sh drm gl kiosk system \
   WINEPREFIX="$WINEPREFIX" WINEDEBUG="$WINEDEBUG" WINEDLLOVERRIDES="$WINEDLLOVERRIDES" \
   BOX64_LOG=0 BOX64_NOBANNER=1 BOX64_LD_LIBRARY_PATH="$BOX64_LD_LIBRARY_PATH" \
-  "$BOX64" "$WINE" stunt.exe
+  BOX64="$BOX64" WINE="$WINE" "$GAMEDIR/tools/play.sh"
 
 "$BOX64" "$WINESERVER" -k 2>/dev/null
 unmount_all

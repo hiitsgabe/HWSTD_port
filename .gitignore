@@ -13,3 +13,4 @@ ports/hwstd/hwstd/log.txt
 *.ISO
 .DS_Store
 dist/
+__pycache__/

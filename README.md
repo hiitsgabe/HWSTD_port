@@ -40,7 +40,9 @@ Verified in an Ubuntu 24.04 arm64 VM (OrbStack, Apple M1) with box64 (git main) 
 - Wine processes end with SIGKILL even on success, so first-run setup checks the registry files instead of exit codes.
 - First launch: about 2 minutes (image + wineboot). Later launches: about 50 seconds to the intro.
 - The game crashes (null read at `004290b2`) while initialising the handheld's pad through DirectInput, so first-run setup disables WineBus joysticks; gptokeyb feeds keyboard + mouse instead. The launcher must export `SDL_GAMECONTROLLERCONFIG` for gptokeyb to see the pad.
-- The screen is 720x480, so the 640x480 game sits at the left with a black bar on the right. A 640x480 Wine desktop (`explorer /desktop=...`) plus `WESTON_KIOSK_NO_RESIZE=1` centres it, but inside that desktop Esc during the intro quits the game, so it is not used. cnc-ddraw (used by the macOS and Windows packages) neither centres it on the device nor avoids the Esc quit, so the handheld port keeps Wine's own DirectDraw.
+- Races always run at 640x480: lines 3-4 of `saves/config.dat` hold the race resolution (F1 cycled it). The low modes draw 320x200 in a corner of the screen, garble the top rows and can crash Wine (`page fault on read access to 02ef0000`), so the launcher resets those lines on every start and F1 is not mapped.
+- The screen is 720x480: the game runs in a 640x480 Wine desktop (`explorer /desktop=hwstd,640x480`) with `WESTON_KIOSK_NO_RESIZE=1`, which centres it. cnc-ddraw (used by the macOS and Windows packages) does not centre it on the device.
+- Esc quits the game from its menus (and, inside the desktop, sometimes from the intro). So B goes through `tools/bkey.py`: gptokeyb sends F12, the helper grabs it on the X display, looks at a few pixels of the race HUD and sends Esc during a race, Space everywhere else (skips the intro, harmless on the menus). It releases the keyboard grab as soon as B is pressed, so d-pad presses and releases always reach the game.
 
 ## Layout
 
@@ -51,6 +53,7 @@ ports/hwstd/                      PortMaster port (same layout as PortMaster-New
   hwstd/
     hwstd.gptk                    controls
     tools/isoextract.py           stdlib-only ISO9660 extractor (first run)
+    tools/play.sh, tools/bkey.py  start the B-button helper next to the game
     licenses/
     box64/, wine.squashfs         built by tools/fetch_deps.sh (gitignored)
 tools/
@@ -80,6 +83,6 @@ tools/package.sh
 
 - [x] Runs under box64 + Wine on arm64 (VM)
 - [x] Package skeleton, ISO extraction
-- [x] Plays on device (Knulli gladiator-ii, RG34XX-SP, H700, kernel 4.9): picture (left-aligned), audio, controls
+- [x] Plays on device (Knulli gladiator-ii, RG34XX-SP, H700, kernel 4.9): picture centred, audio, controls
 - [ ] FPS measurement, other CFWs (muOS, ROCKNIX, ...)
 - [ ] Controls for devices without analog sticks
