@@ -125,7 +125,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.resolve-version.outputs.tag }}
-          target_commitish: ${{ needs.resolve-version.outputs.tag }}
           name: Hot Wheels Stunt Track Driver port ${{ needs.resolve-version.outputs.tag }}
           body: |
             ### Changes
