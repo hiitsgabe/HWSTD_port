@@ -1,10 +1,9 @@
 # Menus: left stick moves the mouse, A clicks.
 # Race: d-pad = arrow keys. Select+Start quits.
-# Esc only on Select: under the Wine desktop, Esc during the intro quits the game.
 back = esc
 start = enter
 a = mouse_left
-b = enter
+b = esc
 x = space
 y = f1
 l1 = mouse_slow
