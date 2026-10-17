@@ -17,7 +17,7 @@ Needs PortMaster's Westonpack runtime (`weston_pkg_0.2`), downloaded automatical
 
 ## Install (macOS, Windows)
 
-- **macOS** (`HWSTD-macos.zip`): an app with a bundled x86_64 Wine (Gcenx build; Rosetta 2 on Apple Silicon). Unsigned, so right-click → Open the first time. It asks for your `.iso` on first launch and keeps the game and Wine prefix in `~/Library/Application Support/HWSTD`.
+- **macOS** (`HWSTD-macos.zip`): an app with a bundled x86_64 Wine (Gcenx build; Rosetta 2 on Apple Silicon) plus cnc-ddraw, because macOS refuses the game's 640x480x8 mode switch and plain Wine stops at "Can't Init Graphic Card". It opens a 1280x960 window that keeps 4:3 (edit `game/ddraw.ini` for full screen). Unsigned, so right-click → Open the first time. It asks for your `.iso` on first launch and keeps the game and Wine prefix in `~/Library/Application Support/HWSTD`.
 - **Windows 10/11** (`HWSTD-windows.zip`): `Install.cmd` mounts your `.iso`, copies `setup/hot98` into `game\` and adds [cnc-ddraw](https://github.com/FunkyFr3sh/cnc-ddraw) so the 8-bit DirectDraw graphics work on modern Windows; `Play.cmd` starts it. No admin rights needed (the game runs without its registry key).
 
 ## Why it works

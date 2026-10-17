@@ -7,8 +7,10 @@ GAME="$DATA/game"
 WINE="$RES/wine/bin/wine"
 WINESERVER="$RES/wine/bin/wineserver"
 export WINEPREFIX="$DATA/prefix"
-export WINEDEBUG=-all
-export WINEDLLOVERRIDES="mscoree,mshtml="  # no Mono/Gecko install prompt
+export WINEDEBUG=${WINEDEBUG:--all}  # e.g. WINEDEBUG=trace+msgbox to debug
+# No Mono/Gecko install prompt; native ddraw = bundled cnc-ddraw (macOS refuses the
+# game's 640x480x8 mode switch, so plain Wine fails with "Can't Init Graphic Card").
+export WINEDLLOVERRIDES="mscoree,mshtml=;ddraw=n,b"
 mkdir -p "$DATA"
 exec > "$DATA/log.txt" 2>&1
 
@@ -52,6 +54,10 @@ if [ ! -f "$WINEPREFIX/.installed" ]; then
   osascript -e 'display notification "Preparing Wine (first launch only)..." with title "Hot Wheels Stunt Track Driver"'
   setup_prefix || { alert "Could not prepare Wine. See $DATA/log.txt"; exit 1; }
 fi
+
+# Refresh cnc-ddraw unless the user edited their own ddraw.ini.
+cp "$RES/cnc-ddraw/ddraw.dll" "$GAME/"
+[ -f "$GAME/ddraw.ini" ] || cp "$RES/cnc-ddraw/ddraw.ini" "$GAME/"
 
 cd "$GAME"
 "$WINE" stunt.exe

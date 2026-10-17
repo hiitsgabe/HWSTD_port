@@ -6,6 +6,7 @@ on:
     branches: [ main ]
     paths:
       - 'macos/**'
+      - 'tools/fetch_cnc.sh'
       - 'windows/**'
       - 'tools/build_macos.sh'
       - 'tools/build_windows.sh'
@@ -43,6 +44,9 @@ jobs:
           plutil -lint "$APP/Contents/Info.plist"
           [ -x "$APP/Contents/MacOS/launcher" ] || { echo "::error::launcher missing"; exit 1; }
           file "$APP/Contents/Resources/wine/bin/wine" | grep -q x86_64 || { echo "::error::wine is not x86_64"; exit 1; }
+          for f in cnc-ddraw/ddraw.dll cnc-ddraw/ddraw.ini licenses/cnc-ddraw.LICENSE licenses/wine.COPYING.LIB; do
+            [ -f "$APP/Contents/Resources/$f" ] || { echo "::error::$f missing from the app"; exit 1; }
+          done
 
       - name: Upload macOS zip
         uses: actions/upload-artifact@v4
