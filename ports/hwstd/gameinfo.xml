@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<gameList>
+  <game>
+    <path>./Hot Wheels Stunt Track Driver.sh</path>
+    <name>Hot Wheels Stunt Track Driver</name>
+    <desc>Race toy cars through loops and jumps built across a house and backyard. The original 1998 Windows game running through box64 and Wine.</desc>
+    <releasedate>19980101T000000</releasedate>
+    <developer>Semi Logic Entertainments</developer>
+    <publisher>Mattel Media</publisher>
+    <genre>Racing</genre>
+    <image>./hwstd/screenshot.png</image>
+  </game>
+</gameList>

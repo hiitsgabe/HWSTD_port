@@ -1,0 +1,21 @@
+# Menus: left stick moves the mouse, A clicks.
+# Race: d-pad = arrow keys. Select+Start quits.
+back = esc
+start = enter
+a = mouse_left
+b = esc
+x = space
+y = f1
+l1 = mouse_slow
+r1 = mouse_right
+
+up = up
+down = down
+left = left
+right = right
+
+left_analog_up = mouse_movement_up
+left_analog_down = mouse_movement_down
+left_analog_left = mouse_movement_left
+left_analog_right = mouse_movement_right
+mouse_slow_scale = 50
