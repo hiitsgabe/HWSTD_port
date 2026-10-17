@@ -1,0 +1,155 @@
+diff --git a/app/src/main/java/com/winlator/XServerDisplayActivity.java b/app/src/main/java/com/winlator/XServerDisplayActivity.java
+index 667f1b3..a72f231 100644
+--- a/app/src/main/java/com/winlator/XServerDisplayActivity.java
++++ b/app/src/main/java/com/winlator/XServerDisplayActivity.java
+@@ -361,6 +361,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+         final GLRenderer renderer = xServerView.getRenderer();
+         switch (item.getItemId()) {
++            case R.id.menu_item_stunt_settings:
++                StuntLauncher.showSettingsDialog(this);
++                drawerLayout.closeDrawers();
++                break;
+             case R.id.menu_item_keyboard:
+                 AppUtils.showKeyboard(this);
+                 drawerLayout.closeDrawers();
+@@ -432,6 +436,11 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+         if (environment != null) environment.stopEnvironmentComponents();
+ 
+         Intent intent = getIntent();
++        if (intent.getBooleanExtra("quit_on_exit", false)) { // StuntLauncher: game closed -> app closes
++            ForegroundService.stopSession(this);
++            finishAndRemoveTask();
++            Runtime.getRuntime().exit(0);
++        }
+         if (intent.hasExtra("exec_path")) {
+             AppUtils.RestartApplicationOptions options = new AppUtils.RestartApplicationOptions();
+             options.containerId = container.id;
+@@ -626,6 +635,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+                 if (profile != null) showInputControls(profile);
+             }
+         }
++        if (getIntent().getBooleanExtra("quit_on_exit", false)) StuntLauncher.applySettings(this);
+ 
+         if (MainActivity.DEBUG_MODE) rootView.addView(AppUtils.createDebugMsgTextView(this));
+         AppUtils.observeSoftKeyboardVisibility(drawerLayout, renderer::setScreenOffsetYRelativeToCursor);
+@@ -796,7 +806,9 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+ 
+     @Override
+     public boolean dispatchGenericMotionEvent(MotionEvent event) {
+-        return !winHandler.onGenericMotionEvent(event) && !touchpadView.onExternalMouseEvent(event) && super.dispatchGenericMotionEvent(event);
++        // Profile controller bindings first, like dispatchKeyEvent does for buttons; otherwise sticks never reach them.
++        return inputControlsView.onGenericMotionEvent(event) ||
++               (!winHandler.onGenericMotionEvent(event) && !touchpadView.onExternalMouseEvent(event) && super.dispatchGenericMotionEvent(event));
+     }
+ 
+     @Override
+diff --git a/app/src/main/java/com/winlator/inputcontrols/ControlsProfile.java b/app/src/main/java/com/winlator/inputcontrols/ControlsProfile.java
+index 572d75c..0cf11fe 100644
+--- a/app/src/main/java/com/winlator/inputcontrols/ControlsProfile.java
++++ b/app/src/main/java/com/winlator/inputcontrols/ControlsProfile.java
+@@ -109,6 +109,10 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
+     public ExternalController getController(int deviceId) {
+         if (!controllersLoaded) loadControllers();
+         for (ExternalController controller : controllers) if (controller.getDeviceId() == deviceId) return controller;
++        // A controller saved with id "*" applies to any game controller, so a bundled profile works with any gamepad.
++        if (com.winlator.StuntLauncher.gamepadEnabled && ExternalController.isGameController(android.view.InputDevice.getDevice(deviceId))) {
++            for (ExternalController controller : controllers) if (controller.getId().equals("*")) return controller;
++        }
+         return null;
+     }
+ 
+diff --git a/app/src/main/java/com/winlator/widget/InputControlsView.java b/app/src/main/java/com/winlator/widget/InputControlsView.java
+index c9e7090..63ef987 100755
+--- a/app/src/main/java/com/winlator/widget/InputControlsView.java
++++ b/app/src/main/java/com/winlator/widget/InputControlsView.java
+@@ -382,7 +382,7 @@ public class InputControlsView extends View {
+ 
+                     touchpadView.setPointerButtonLeftEnabled(true);
+                     for (ControlElement element : profile.getElements()) {
+-                        if (element.handleTouchDown(pointerId, x, y)) handled = true;
++                        if (showTouchscreenControls && element.handleTouchDown(pointerId, x, y)) handled = true; // hidden controls don't eat touches
+                         if (element.getBindingAt(0) == Binding.MOUSE_LEFT_BUTTON && element.getLastBindingIndex() == 0) {
+                             touchpadView.setPointerButtonLeftEnabled(false);
+                         }
+diff --git a/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java b/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java
+index 08fbf80..8d73585 100644
+--- a/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java
++++ b/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java
+@@ -74,12 +74,14 @@ public abstract class RootFSInstaller {
+             else AppUtils.showToast(activity, R.string.unable_to_install_system_files);
+ 
+             dialog.closeOnUiThread();
++            if (success) activity.runOnUiThread(() -> com.winlator.StuntLauncher.start(activity));
+         });
+     }
+ 
+     public static void installIfNeeded(final MainActivity activity) {
+         RootFS rootFS = RootFS.find(activity);
+         if (!rootFS.isValid() || rootFS.getVersion() < LATEST_VERSION) install(activity);
++        else com.winlator.StuntLauncher.start(activity);
+     }
+ 
+     private static void clearOptDir(File optDir) {
+diff --git a/app/src/main/java/com/winlator/xserver/requests/GrabRequests.java b/app/src/main/java/com/winlator/xserver/requests/GrabRequests.java
+index 4ac0d58..a5d498c 100644
+--- a/app/src/main/java/com/winlator/xserver/requests/GrabRequests.java
++++ b/app/src/main/java/com/winlator/xserver/requests/GrabRequests.java
+@@ -41,7 +41,8 @@ public abstract class GrabRequests {
+         if (client.xServer.grabManager.getWindow() != null && client.xServer.grabManager.getClient() != client) {
+             status = Status.ALREADY_GRABBED;
+         }
+-        else if (window.getMapState() != Window.MapState.VIEWABLE) {
++        else if (window.getMapState() != Window.MapState.VIEWABLE || !window.attributes.isEnabled()) {
++            // A disabled window (e.g. Wine's clip window, hidden by the desktop workaround) would swallow all pointer events.
+             status = Status.NOT_VIEWABLE;
+         }
+         else {
+diff --git a/app/src/main/res/menu/xserver_menu.xml b/app/src/main/res/menu/xserver_menu.xml
+index 81fd492..cbe5e26 100644
+--- a/app/src/main/res/menu/xserver_menu.xml
++++ b/app/src/main/res/menu/xserver_menu.xml
+@@ -2,6 +2,7 @@
+ <menu
+   xmlns:android="http://schemas.android.com/apk/res/android">
+     <group android:checkableBehavior="none">
++        <item android:icon="@drawable/icon_settings" android:id="@+id/menu_item_stunt_settings" android:title="Game Settings" />
+         <item android:icon="@drawable/icon_keyboard" android:id="@+id/menu_item_keyboard" android:title="@string/keyboard" />
+         <item android:icon="@drawable/icon_input_controls" android:id="@+id/menu_item_input_controls" android:title="@string/input_controls" />
+         <item android:icon="@drawable/icon_fullscreen" android:id="@+id/menu_item_toggle_fullscreen" android:title="@string/toggle_fullscreen" />
+diff --git a/app/src/main/res/values-pt/strings.xml b/app/src/main/res/values-pt/strings.xml
+index e2d342c..79425e2 100644
+--- a/app/src/main/res/values-pt/strings.xml
++++ b/app/src/main/res/values-pt/strings.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name">Winlator</string>
++    <string name="app_name">Stunt Track Driver</string>
+     <string name="run">Executar</string>
+     <string name="edit">Editar</string>
+     <string name="remove">Remover</string>
+diff --git a/app/src/main/res/values-ru/strings.xml b/app/src/main/res/values-ru/strings.xml
+index 3475814..600821d 100644
+--- a/app/src/main/res/values-ru/strings.xml
++++ b/app/src/main/res/values-ru/strings.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name">Winlator</string>
++    <string name="app_name">Stunt Track Driver</string>
+     <string name="run">Запустить</string>
+     <string name="edit">Редактировать</string>
+     <string name="remove">Удалить</string>
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index e943712..d9ebf18 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name">Winlator</string>
++    <string name="app_name">Stunt Track Driver</string>
+     <string name="run">Run</string>
+     <string name="edit">Edit</string>
+     <string name="remove">Remove</string>
