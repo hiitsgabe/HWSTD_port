@@ -1,3 +1,68 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 7690275..1428adb 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -5,7 +5,7 @@ android {
+     compileSdk 35
+ 
+     defaultConfig {
+-        applicationId 'com.winlator'
++        applicationId 'com.hwstd.td'
+         minSdkVersion 26
+         targetSdkVersion 28
+         versionCode 33
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 1262c0d..be86c80 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -64,7 +64,7 @@
+ 
+         <provider
+             android:name="androidx.core.content.FileProvider"
+-            android:authorities="com.winlator.FileProvider"
++            android:authorities="com.hwstd.td.FileProvider"
+             android:exported="false"
+             android:grantUriPermissions="true">
+ 
+diff --git a/app/src/main/cpp/gladiorenderer/include/gladio.h b/app/src/main/cpp/gladiorenderer/include/gladio.h
+index 3563172..044b42f 100644
+--- a/app/src/main/cpp/gladiorenderer/include/gladio.h
++++ b/app/src/main/cpp/gladiorenderer/include/gladio.h
+@@ -13,7 +13,7 @@
+ #define THREAD_POOL_NUM_THREADS 4
+ #define PIXEL_READ_CACHE_SKIP_FRAMES 3
+ #define SKIP_GL_FINISH 1
+-#define X11_SERVER_PATH "/data/data/com.winlator/files/rootfs/tmp/.X11-unix/X0"
++#define X11_SERVER_PATH "/data/data/com.hwstd.td/files/rootfs/tmp/.X11-unix/X0"
+ 
+ #define GL_STRING_VERSION "3.3"
+ #define GL_STRING_RENDERER "Gladio"
+diff --git a/app/src/main/cpp/vortekrenderer/include/vortek.h b/app/src/main/cpp/vortekrenderer/include/vortek.h
+index 5292644..afc9c2f 100644
+--- a/app/src/main/cpp/vortekrenderer/include/vortek.h
++++ b/app/src/main/cpp/vortekrenderer/include/vortek.h
+@@ -5,7 +5,7 @@
+ #define MEMORY_POOL_MAX_SIZE 65536
+ #define SERVER_RING_BUFFER_SIZE 4194304
+ #define CLIENT_RING_BUFFER_SIZE 262144
+-#define VORTEK_SERVER_PATH "/data/data/com.winlator/files/rootfs/tmp/.vortek/V0"
++#define VORTEK_SERVER_PATH "/data/data/com.hwstd.td/files/rootfs/tmp/.vortek/V0"
+ #define VK_HANDLE_BYTE_COUNT 8
+ #define THREAD_POOL_NUM_THREADS 8
+ 
+diff --git a/app/src/main/cpp/winlator/include/winlator.h b/app/src/main/cpp/winlator/include/winlator.h
+index 2314314..f66fc89 100644
+--- a/app/src/main/cpp/winlator/include/winlator.h
++++ b/app/src/main/cpp/winlator/include/winlator.h
+@@ -11,7 +11,7 @@
+ #define BITMASK_UNSET(bits, flag) bits &= ~flag
+ #define GETEXP(x) (31 - __builtin_clz(x))
+ 
+-#define APP_CACHE_DIR "/data/data/com.winlator/cache"
++#define APP_CACHE_DIR "/data/data/com.hwstd.td/cache"
+ #define LIBVULKAN_PATH "/system/lib64/libvulkan.so"
+ 
+ #define CLOSEFD(x) \
 diff --git a/app/src/main/java/com/winlator/XServerDisplayActivity.java b/app/src/main/java/com/winlator/XServerDisplayActivity.java
 index 667f1b3..a72f231 100644
 --- a/app/src/main/java/com/winlator/XServerDisplayActivity.java
@@ -44,6 +109,32 @@ index 667f1b3..a72f231 100644
      }
  
      @Override
+diff --git a/app/src/main/java/com/winlator/core/AppUtils.java b/app/src/main/java/com/winlator/core/AppUtils.java
+index cac686e..3c7f69b 100644
+--- a/app/src/main/java/com/winlator/core/AppUtils.java
++++ b/app/src/main/java/com/winlator/core/AppUtils.java
+@@ -44,7 +44,7 @@ import java.util.TimerTask;
+ 
+ public abstract class AppUtils {
+     public static final String DIRECTORY_DOWNLOADS = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath();
+-    public static final String INTERNAL_STORAGE = "/data/data/com.winlator/storage";
++    public static final String INTERNAL_STORAGE = "/data/data/com.hwstd.td/storage";
+     private static WeakReference<Toast> globalToastReference = null;
+ 
+     public static class RestartApplicationOptions {
+diff --git a/app/src/main/java/com/winlator/core/FileUtils.java b/app/src/main/java/com/winlator/core/FileUtils.java
+index b503fc0..1f2d31d 100644
+--- a/app/src/main/java/com/winlator/core/FileUtils.java
++++ b/app/src/main/java/com/winlator/core/FileUtils.java
+@@ -410,7 +410,7 @@ public abstract class FileUtils {
+         Intent intent;
+         if (path.startsWith("file://")) {
+             File file = new File(Uri.decode(path.replace("file://", "")));
+-            intent = new Intent(Intent.ACTION_VIEW, FileProvider.getUriForFile(activity, "com.winlator.FileProvider", file));
++            intent = new Intent(Intent.ACTION_VIEW, FileProvider.getUriForFile(activity, "com.hwstd.td.FileProvider", file));
+             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+         }
+         else intent = new Intent(Intent.ACTION_VIEW, Uri.parse(path));
 diff --git a/app/src/main/java/com/winlator/inputcontrols/ControlsProfile.java b/app/src/main/java/com/winlator/inputcontrols/ControlsProfile.java
 index 572d75c..0cf11fe 100644
 --- a/app/src/main/java/com/winlator/inputcontrols/ControlsProfile.java

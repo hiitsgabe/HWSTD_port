@@ -138,7 +138,7 @@ jobs:
             | Platform | File | Notes |
             |--|--|--|
             | 🎮 PortMaster (ARM64 handhelds) | `hwstd.zip` | Tested on Knulli (RG34XX-SP, H700). Needs the Westonpack runtime (`weston_pkg_0.2`), which PortMaster downloads. |
-            | 🤖 Android (arm64) | `hwstd-android-arm64.apk` | Built on Winlator (Wine + Box64). Replaces an installed Winlator (same package id). Tested on an Android 14 emulator. |
+            | 🤖 Android (arm64) | `hwstd-android-arm64.apk` | Built on Winlator (Wine + Box64). Installs next to Winlator. Tested on an Android 14 emulator. |
             | 🍎 macOS (Apple Silicon via Rosetta 2, Intel) | `HWSTD-macos.zip` | App with a bundled Wine. Unsigned: right-click → Open the first time. |
             | 🪟 Windows 10/11 | `HWSTD-windows.zip` | Installer copies the game from your ISO and adds cnc-ddraw. No admin rights needed. |
 
@@ -148,7 +148,7 @@ jobs:
             3. Refresh the game list and start it from Ports. The first launch prepares Wine and takes a couple of minutes.
 
             ### Android install
-            1. Install `hwstd-android-arm64.apk` (uninstall Winlator first if you have it) and open **Stunt Track Driver**.
+            1. Install `hwstd-android-arm64.apk` and open **Stunt Track Driver**.
             2. Allow storage access and wait for the system files to install (first launch only).
             3. Pick the game's `.iso` in the file picker. The game files are copied into the app, then the game starts.
             4. Touch: drag to move the mouse, tap to click; on-screen arrows drive. Xbox-style gamepads are mapped too (not yet tested on a real device). Press Back for **Game Settings** (hide controls, stretch screen, gamepad).

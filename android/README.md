@@ -20,14 +20,18 @@ O que muda em relação ao Winlator (cerca de 25 linhas de patch e três arquivo
 | `overlay/.../StuntLauncher.java` | Ao abrir o app: cria o container "Stunt Track Driver" uma vez, pede a ISO, copia `SETUP/HOT98` para `C:\hot98` e lança `stunt.exe`. Também tem o diálogo Game Settings |
 | `overlay/.../IsoExtractor.java` | Leitor ISO 9660 mínimo, sem dependências |
 | `overlay/.../controls-5.icp` | Perfil de controles: botões na tela e mapeamento de qualquer gamepad |
-| `winlator.patch` | Chama o StuntLauncher depois da instalação do sistema; fecha o app quando o jogo fecha; item Game Settings no menu do jogo; aceita o id de controle `*` (qualquer gamepad); faz o analógico chegar ao perfil antes do bridge XInput; controles escondidos deixam de capturar toques; o X server recusa grab de ponteiro em janela desabilitada (ver abaixo); renomeia o app |
+| `rename_package.py` | Move os caminhos embutidos nos assets do Winlator para o ID do app (ver abaixo) |
+| `winlator.patch` | Muda o ID do app para `com.hwstd.td`; chama o StuntLauncher depois da instalação do sistema; fecha o app quando o jogo fecha; item Game Settings no menu do jogo; aceita o id de controle `*` (qualquer gamepad); faz o analógico chegar ao perfil antes do bridge XInput; controles escondidos deixam de capturar toques; o X server recusa grab de ponteiro em janela desabilitada (ver abaixo); renomeia o app |
 
-O `applicationId` continua `com.winlator`, porque o rootfs pré-compilado do Winlator tem `/data/data/com.winlator` embutido.
-Por isso o APK **substitui um Winlator já instalado** (e falha ao instalar por cima de um Winlator assinado com outra chave: desinstale antes).
+O app usa o ID próprio `com.hwstd.td` e instala ao lado de um Winlator.
+Os binários pré-compilados do Winlator (rootfs, Box64, drivers) têm o caminho `/data/data/com.winlator` embutido em cerca de 460 lugares: RPATH, interpretador ELF, caminhos do glibc.
+Como `com.hwstd.td` tem o mesmo tamanho de `com.winlator`, o `rename_package.py` troca esse caminho byte a byte dentro dos `.tzst` e regrava os cabeçalhos tar (symlinks e checksums).
+O patch faz o mesmo nos headers C, no `AppUtils.java` e na autoridade do FileProvider.
+Para mudar o ID, ele precisa continuar com 12 caracteres; altere `PACKAGE_ID` no `build_apk.sh` e as ocorrências de `com.hwstd.td` no `winlator.patch`.
 
 ## Gerar o APK
 
-Requisitos: git, JDK 17 a 21 e o Android SDK com `sdkmanager`.
+Requisitos: git, python3, zstd, JDK 17 a 21 e o Android SDK com `sdkmanager`.
 O script instala sozinho o NDK 24, o CMake 3.22.1 e a plataforma 35.
 No macOS, `brew install openjdk@21 android-commandlinetools` resolve.
 
@@ -105,12 +109,13 @@ Feita em 2026-10-17 num emulador Android 14 arm64 (AVD Pixel 7, Mac M1), com APK
 
 | Item | Resultado |
 |---|---|
-| Build do APK do zero (`build_apk.sh`) | OK, cerca de 2,5 min com cache do Gradle, 151 MB |
+| Build do APK do zero (`build_apk.sh`) | OK, 162 MB. A troca de caminhos nos assets soma cerca de 45 s ao build |
 | Primeira abertura: instala o sistema, cria o container, abre o seletor | OK |
 | Cópia da ISO e lançamento direto do `stunt.exe` | OK (o extrator também foi conferido no Mac: 246 arquivos, md5 igual ao da ISO) |
 | Menus por touch (touchpad) | OK depois da correção do grab, nos 4 inícios testados (2 deles com instalação limpa) |
 | Corrida 3D, acelerar pelo botão na tela | OK |
 | Game Settings: esconder overlay, esticar tela, persistência | OK |
+| ID próprio `com.hwstd.td` instalado ao lado de um app `com.winlator` | OK: os dois abrem; com o ID novo o jogo chega à corrida |
 | Gamepad | **Não validado**: o emulador não tem gamepad virtual. O mapeamento segue o formato de perfil do Winlator, mas falta testar num aparelho com controle |
 | Som | Não verificado (emulador sem saída de áudio audível); o jogo não travou em "Sound card not found" |
 | Aparelho físico e desempenho | Não testado |

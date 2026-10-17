@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Builds an Android (arm64) APK that runs Hot Wheels: Stunt Track Driver on Winlator.
 # Usage: android/build_apk.sh            -> android/out/StuntTrackDriver-winlator-<rev>.apk
-# Needs: git, JDK 17-21, Android SDK (ANDROID_HOME or ANDROID_SDK_ROOT) with sdkmanager.
+# Needs: git, python3, zstd, JDK 17-21, Android SDK (ANDROID_HOME or ANDROID_SDK_ROOT) with sdkmanager.
 # No game files are involved: the APK asks for the user's own ISO on first launch.
 set -euo pipefail
 
 WINLATOR_REPO=https://github.com/brunodev85/winlator-app
 WINLATOR_COMMIT=8077f374ef2d54127b088de9e8cd7b4af14d9c8b   # Winlator 11.2 + fixes (2026-10-16)
 NDK_VERSION=24.0.8215888                                     # pinned by winlator-app/app/build.gradle
+PACKAGE_ID=com.hwstd.td                                      # same length as com.winlator; must match winlator.patch
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 CACHE=$HERE/.cache
@@ -15,6 +16,7 @@ SRC=$CACHE/winlator-app
 OUT=$HERE/out
 
 die() { echo "error: $*" >&2; exit 1; }
+for tool in git python3 zstd; do command -v $tool >/dev/null || die "$tool not found"; done
 
 # --- JDK: Gradle 8.14 runs on 17..24; prefer an explicit 21 or 17 over a too-new default.
 java_major() { "$1/bin/java" -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | head -1; }
@@ -61,6 +63,8 @@ git -C "$SRC" reset -q --hard
 git -C "$SRC" clean -fdq -e build -e .cxx -e .gradle -e local.properties
 git -C "$SRC" apply "$HERE/winlator.patch"
 cp -R "$HERE/overlay/." "$SRC/"
+# Own package id, so the app installs next to Winlator: move the paths baked into the prebuilt assets.
+python3 -I "$HERE/rename_package.py" "$SRC/app/src/main/assets" "$PACKAGE_ID"
 echo "sdk.dir=$SDK" > "$SRC/local.properties"
 
 # --- Build. Upstream only configures the (minified, debug-signed) debug variant.
