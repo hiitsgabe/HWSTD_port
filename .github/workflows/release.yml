@@ -2,37 +2,71 @@ name: Build and Release
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: Release version, e.g. 1.0.0 (default 1.0.<run number>)
-        type: string
-        default: ''
+
+# Two runs at once would bump to the same version.
+concurrency: release
 
 jobs:
+  # Every run bumps VERSION, commits it to main and tags the commit; the builds
+  # and the release use that tag.
   resolve-version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       tag: ${{ steps.resolve.outputs.TAG }}
     steps:
-      - name: Resolve version
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Bump version and tag
         id: resolve
-        run: echo "TAG=v${{ inputs.version || format('1.0.{0}', github.run_number) }}" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          IFS='.' read -r VMAJOR VMINOR VPATCH < VERSION
+          VPATCH=$((VPATCH + 1))
+          if [ "$VPATCH" -gt 9 ]; then
+            VPATCH=0
+            VMINOR=$((VMINOR + 1))
+            if [ "$VMINOR" -gt 9 ]; then
+              VMINOR=0
+              VMAJOR=$((VMAJOR + 1))
+            fi
+          fi
+          NEW_VERSION="${VMAJOR}.${VMINOR}.${VPATCH}"
+          TAG="v${NEW_VERSION}"
+          echo "$NEW_VERSION" > VERSION
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add VERSION
+          git commit -m "chore: bump version to ${NEW_VERSION}"
+          git push origin main
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
 
   build-portmaster:
+    needs: resolve-version
     uses: ./.github/workflows/portmaster.yml
     with:
-      ref: ${{ github.sha }}
+      ref: ${{ needs.resolve-version.outputs.tag }}
 
   build-android:
+    needs: resolve-version
     uses: ./.github/workflows/android.yml
     with:
-      ref: ${{ github.sha }}
+      ref: ${{ needs.resolve-version.outputs.tag }}
     secrets: inherit
 
   build-desktop:
+    needs: resolve-version
     uses: ./.github/workflows/desktop.yml
     with:
-      ref: ${{ github.sha }}
+      ref: ${{ needs.resolve-version.outputs.tag }}
 
   release:
     needs: [resolve-version, build-portmaster, build-android, build-desktop]
@@ -40,6 +74,29 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-version.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Release notes from commits
+        id: notes
+        run: |
+          set -euo pipefail
+          TAG=${{ needs.resolve-version.outputs.tag }}
+          PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | grep -vx "$TAG" | head -1 || true)
+          if [ -n "$PREV_TAG" ]; then RANGE="$PREV_TAG..$TAG"; else RANGE="$TAG"; fi
+          COMMITS=$(git log "$RANGE" --no-merges --pretty=format:'- %s' | grep -v '^- chore: bump version' | head -50 || true)
+          echo "Changes since ${PREV_TAG:-the first commit}:"
+          echo "$COMMITS"
+          EOF_MARKER=$(dd if=/dev/urandom bs=15 count=1 2>/dev/null | base64)
+          {
+            echo "notes<<${EOF_MARKER}"
+            echo "${COMMITS:-- No changes listed.}"
+            echo "${EOF_MARKER}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Download PortMaster zip
         uses: actions/download-artifact@v4
         with:
@@ -68,9 +125,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.resolve-version.outputs.tag }}
-          target_commitish: ${{ github.sha }}
+          target_commitish: ${{ needs.resolve-version.outputs.tag }}
           name: Hot Wheels Stunt Track Driver port ${{ needs.resolve-version.outputs.tag }}
           body: |
+            ### Changes
+
+            ${{ steps.notes.outputs.notes }}
+
+            ---
+
             Runs the original 1998 Windows game through box64 + Wine. **Game files are not included**: you need your own copy of the CD.
 
             | Platform | File | Notes |
@@ -90,11 +153,6 @@ jobs:
             2. Allow storage access and wait for the system files to install (first launch only).
             3. Pick the game's `.iso` in the file picker. The game files are copied into the app, then the game starts.
             4. Touch: drag to move the mouse, tap to click; on-screen arrows drive. Xbox-style gamepads are mapped too (not yet tested on a real device). Press Back for **Game Settings** (hide controls, stretch screen, gamepad).
-          files: |
-            dist/hwstd.zip
-            dist/hwstd-android-arm64.apk
-            dist/HWSTD-macos.zip
-            dist/HWSTD-windows.zip
 
             ### macOS install
             1. Unzip `HWSTD-macos.zip` and move **Hot Wheels Stunt Track Driver** to Applications.
@@ -104,4 +162,9 @@ jobs:
             ### Windows install
             1. Unzip `HWSTD-windows.zip`, put your CD image (`.iso`) in the `HWSTD` folder (or pick it when asked) and run `Install.cmd`.
             2. Play with `Play.cmd`.
+          files: |
+            dist/hwstd.zip
+            dist/hwstd-android-arm64.apk
+            dist/HWSTD-macos.zip
+            dist/HWSTD-windows.zip
           prerelease: false
