@@ -21,12 +21,17 @@ cd "$GAMEDIR"
 > "$GAMEDIR/log.txt" && exec > >(tee "$GAMEDIR/log.txt") 2>&1
 
 # Bundled x86 layer: box64 (aarch64) + Wine amd64 WoW64 build (runs the 32-bit exe).
+# SD cards are often exFAT (no symlinks), so Wine ships as a squashfs and the Wine
+# prefix lives in an ext4 image; both are mounted under /tmp only while the game runs.
 BOX64="$GAMEDIR/box64/box64"
-WINE="$GAMEDIR/wine/bin/wine"
-export WINEPREFIX="$GAMEDIR/prefix"
+MNT=/tmp/hwstd
+WINE="$MNT/wine/bin/wine"
+WINESERVER="$MNT/wine/bin/wineserver"
+export WINEPREFIX="$MNT/prefix/pfx"
 export WINEDEBUG=-all
 export WINEDLLOVERRIDES="mscoree,mshtml="  # no Mono/Gecko install prompt
 export BOX64_LOG=0 BOX64_NOBANNER=1
+export BOX64_LD_LIBRARY_PATH="$GAMEDIR/box64/x64lib"  # x86_64 libgcc_s/libstdc++ that Wine links against
 
 # First run: the user drops their own CD image (*.iso) in this folder.
 # The game runs straight from the CD's setup/hot98 folder, no installer needed.
@@ -34,7 +39,7 @@ install_game() {
   local iso
   iso=$(ls "$GAMEDIR"/*.iso "$GAMEDIR"/*.ISO 2>/dev/null | head -n 1)
   if [ -z "$iso" ]; then
-    pm_message "Copy your Hot Wheels Stunt Track Driver CD image (.iso) to ports/hwstd/ and launch again."
+    pm_message "Copy the CD folder setup/hot98 into ports/hwstd/gamedata/ (or the CD .iso into ports/hwstd/) and launch again."
     sleep 5
     return 1
   fi
@@ -46,16 +51,38 @@ install_game() {
 
 setup_prefix() {
   pm_message "Preparing Wine (first run, takes a few minutes)..."
-  "$BOX64" "$WINE" wineboot -i || return 1
+  # Under box64 on the H700, Wine processes end with SIGKILL even on success,
+  # so check what they wrote instead of their exit codes.
+  "$BOX64" "$WINE" wineboot -i
   # The game draws in software through DirectDraw: Wine's GDI path needs no GPU.
-  "$BOX64" "$WINE" reg add 'HKCU\Software\Wine\Direct3D' /v renderer /d gdi /f || return 1
-  "$BOX64" "$WINE" reg add 'HKLM\Software\Mattel\Stunt Track Driver\1.0' /f || return 1
-  "$BOX64" "$GAMEDIR/wine/bin/wineserver" -w
+  "$BOX64" "$WINE" reg add 'HKCU\Software\Wine\Direct3D' /v renderer /d gdi /f
+  "$BOX64" "$WINE" reg add 'HKLM\Software\Mattel\Stunt Track Driver\1.0' /f
+  "$BOX64" "$WINESERVER" -w
+  grep -q '"renderer"="gdi"' "$WINEPREFIX/user.reg" || return 1
+  grep -qi 'Mattel\\\\Stunt Track Driver' "$WINEPREFIX/system.reg" || return 1
   touch "$WINEPREFIX/.installed"
 }
 
+unmount_all() {
+  $ESUDO umount "$MNT/prefix" 2>/dev/null
+  $ESUDO umount "$MNT/wine" 2>/dev/null
+}
+
+mount_all() {
+  $ESUDO mkdir -p "$MNT/wine" "$MNT/prefix"
+  unmount_all
+  if [ ! -f "$GAMEDIR/prefix.img" ]; then
+    pm_message "Creating Wine prefix image (first run, about a minute)..."
+    truncate -s 1G "$GAMEDIR/prefix.img" && mkfs.ext4 -q -F "$GAMEDIR/prefix.img" || { rm -f "$GAMEDIR/prefix.img"; return 1; }
+  fi
+  $ESUDO mount -o ro "$GAMEDIR/wine.squashfs" "$MNT/wine" || return 1
+  $ESUDO mount -o loop "$GAMEDIR/prefix.img" "$MNT/prefix" || return 1
+  $ESUDO mkdir -p "$WINEPREFIX"
+}
+
 [ -f "$GAMEDIR/gamedata/stunt.exe" ] || install_game || exit 1
-[ -f "$WINEPREFIX/.installed" ] || setup_prefix || exit 1
+mount_all || { pm_message "Could not mount Wine files."; sleep 5; unmount_all; exit 1; }
+[ -f "$WINEPREFIX/.installed" ] || setup_prefix || { unmount_all; exit 1; }
 
 # Wine needs an X11 server: Westonpack provides one.
 weston_dir=/tmp/weston
@@ -81,10 +108,11 @@ pm_platform_helper "$BOX64"
 cd "$GAMEDIR/gamedata"
 $ESUDO env $weston_dir/westonwrap.sh drm gl kiosk system \
   WINEPREFIX="$WINEPREFIX" WINEDEBUG="$WINEDEBUG" WINEDLLOVERRIDES="$WINEDLLOVERRIDES" \
-  BOX64_LOG=0 BOX64_NOBANNER=1 \
+  BOX64_LOG=0 BOX64_NOBANNER=1 BOX64_LD_LIBRARY_PATH="$BOX64_LD_LIBRARY_PATH" \
   "$BOX64" "$WINE" stunt.exe
 
-"$BOX64" "$GAMEDIR/wine/bin/wineserver" -k 2>/dev/null
+"$BOX64" "$WINESERVER" -k 2>/dev/null
+unmount_all
 if [[ "$PM_CAN_MOUNT" != "N" ]]; then
   $ESUDO umount "${weston_dir}"
 fi

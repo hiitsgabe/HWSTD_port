@@ -13,7 +13,7 @@
         ],
         "desc": "Race toy cars through loops and jumps built across a house and backyard. The original 1998 Windows game running through box64 and Wine.",
         "desc_md": null,
-        "inst": "Copy your own Hot Wheels Stunt Track Driver CD image (.iso) into ports/hwstd/. The first launch extracts the game and prepares Wine, which takes a few minutes.",
+        "inst": "Copy the contents of the CD's setup/hot98 folder (stunt.exe, data, menudata, saves) into ports/hwstd/gamedata/, or put your CD image (.iso) in ports/hwstd/ and the port extracts it. The first launch prepares Wine and takes a few minutes.",
         "inst_md": null,
         "genres": [
             "racing"

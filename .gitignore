@@ -2,9 +2,10 @@ android/.cache/
 android/out/
 # Built/fetched by tools/fetch_deps.sh
 ports/hwstd/hwstd/box64/
-ports/hwstd/hwstd/wine/
+ports/hwstd/hwstd/wine.squashfs
+ports/hwstd/hwstd/prefix.img
+build/
 # Created on device
-ports/hwstd/hwstd/prefix/
 ports/hwstd/hwstd/gamedata/
 ports/hwstd/hwstd/log.txt
 # Never commit game files

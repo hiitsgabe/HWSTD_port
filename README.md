@@ -6,13 +6,21 @@ Runs the 1998 Windows game *Hot Wheels Stunt Track Driver* on ARM Linux handheld
 
 `setup/hot98/stunt.exe` on the CD imports only `DDRAW` (`DirectDrawCreate`, `IDirectDraw2`), `DINPUT` and `DSOUND`. There is no Direct3D or Glide: the 3D is rendered in software into an 8-bit 640x480 surface (F1 in-race switches to 320x240 / 320x200). So Wine can present it through its GDI DirectDraw path (`HKCU\Software\Wine\Direct3D\renderer=gdi`) with no GPU at all, which sidesteps the Mali-G31 (GLES only, no Vulkan).
 
-Verified in an Ubuntu 24.04 arm64 VM (OrbStack, Apple M1) with box64 (git main) and Wine 11.19 amd64-wow64: intro videos, menus and a 3D race all run. Findings:
+Verified in an Ubuntu 24.04 arm64 VM (OrbStack, Apple M1) with box64 (git main) and Wine amd64-wow64 builds: intro videos, menus and a 3D race all run. Findings:
 
 - No installer and no CD check: copying `setup/hot98` is enough. The game reads the (empty) key `HKLM\Software\Mattel\Stunt Track Driver\1.0`.
 - Without an audio device it stops at "Sound card not found, or fail in sound init." Any working ALSA/PulseAudio output fixes it.
 - Menus read a relative DirectInput mouse; races use the arrow keys.
 - `WINEDLLOVERRIDES="mscoree,mshtml="` avoids Wine's Mono/Gecko install prompt on first boot.
 - About 245 MB RAM for the game process.
+
+## Device notes (Knulli on H700)
+
+- `/userdata` is exFAT: no symlinks. Wine ships as `wine.squashfs` and the prefix lives in `prefix.img` (ext4, 1 GB, created on first launch); both are loop-mounted under `/tmp/hwstd` only while the game runs.
+- Wine 11.x aborts (`anon_mmap_alloc: Assertion !(size & host_page_mask)`) on the 4.9 kernel; Wine 10.0 works.
+- box64 needs its bundled x86_64 `libgcc_s`/`libstdc++` (`box64/x64lib`, via `BOX64_LD_LIBRARY_PATH`).
+- Wine processes end with SIGKILL even on success, so first-run setup checks the registry files instead of exit codes.
+- First launch: about 2 minutes (image + wineboot). Later launches: about 50 seconds to the intro.
 
 ## Layout
 
@@ -42,5 +50,6 @@ Then copy `ports/hwstd/*` into the device's `ports/` folder, and put your `.iso`
 
 - [x] Runs under box64 + Wine on arm64 (VM)
 - [x] Package skeleton, ISO extraction
-- [ ] On-device test (Knulli, RG35XXSP): Westonpack display, audio, FPS
+- [x] Launches on device (Knulli gladiator-ii, H700, kernel 4.9) under Westonpack
+- [ ] On device: picture, audio, controls, FPS
 - [ ] Controls for devices without analog sticks
