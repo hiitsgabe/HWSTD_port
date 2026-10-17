@@ -40,7 +40,7 @@ Verified in an Ubuntu 24.04 arm64 VM (OrbStack, Apple M1) with box64 (git main) 
 - Wine processes end with SIGKILL even on success, so first-run setup checks the registry files instead of exit codes.
 - First launch: about 2 minutes (image + wineboot). Later launches: about 50 seconds to the intro.
 - The game crashes (null read at `004290b2`) while initialising the handheld's pad through DirectInput, so first-run setup disables WineBus joysticks; gptokeyb feeds keyboard + mouse instead. The launcher must export `SDL_GAMECONTROLLERCONFIG` for gptokeyb to see the pad.
-- The screen is 720x480, so the 640x480 game sits at the left with a black bar on the right. A 640x480 Wine desktop (`explorer /desktop=...`) plus `WESTON_KIOSK_NO_RESIZE=1` centres it, but inside that desktop Esc during the intro quits the game, so it is not used.
+- The screen is 720x480, so the 640x480 game sits at the left with a black bar on the right. A 640x480 Wine desktop (`explorer /desktop=...`) plus `WESTON_KIOSK_NO_RESIZE=1` centres it, but inside that desktop Esc during the intro quits the game, so it is not used. cnc-ddraw (used by the macOS and Windows packages) neither centres it on the device nor avoids the Esc quit, so the handheld port keeps Wine's own DirectDraw.
 
 ## Layout
 
