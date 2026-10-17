@@ -42,7 +42,9 @@ fi
 SDKMANAGER=$(command -v sdkmanager || ls "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1 || true)
 [ -n "$SDKMANAGER" ] || die "sdkmanager not found (install Android command-line tools)"
 if [ ! -d "$SDK/ndk/$NDK_VERSION" ] || [ ! -d "$SDK/cmake/3.22.1" ] || [ ! -d "$SDK/platforms/android-35" ]; then
-  yes | "$SDKMANAGER" --sdk_root="$SDK" --install "ndk;$NDK_VERSION" "cmake;3.22.1" "platforms;android-35" "build-tools;34.0.0" >/dev/null
+  # `yes` dies of SIGPIPE once sdkmanager exits; under pipefail that would abort the script.
+  (yes || true) | "$SDKMANAGER" --sdk_root="$SDK" --install "ndk;$NDK_VERSION" "cmake;3.22.1" "platforms;android-35" "build-tools;34.0.0" >/dev/null
+  [ -d "$SDK/ndk/$NDK_VERSION" ] || die "sdkmanager did not install ndk;$NDK_VERSION"
 fi
 
 # --- Winlator source at a pinned commit (prebuilt rootfs/Wine/Box64 are committed upstream as assets).

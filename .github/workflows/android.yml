@@ -1,0 +1,90 @@
+name: Build Android APK
+
+on:
+  # Build on PRs and main so the APK can be tried on a phone before release.
+  pull_request:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to build (default branch when empty)
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build (default branch when empty)
+        type: string
+        default: ''
+
+jobs:
+  build-android:
+    # x86_64 runner: the Android NDK only ships x86_64 Linux host tools.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      # Gradle 8.14 (pinned by Winlator) runs on JDK 17-24.
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # The runner's preinstalled SDK provides sdkmanager; the script installs
+      # the NDK, CMake and platform Winlator needs.
+      - name: Build APK
+        run: android/build_apk.sh
+
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          APK=$(ls android/out/*.apk)
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT" dump badging "$APK" | grep -E "^package:|^application-label:|^native-code:"
+          # grep without -q: an early exit would SIGPIPE the producer and fail under pipefail.
+          "$AAPT" dump badging "$APK" | grep "native-code: 'arm64-v8a'" > /dev/null || { echo "::error::APK has no arm64-v8a code"; exit 1; }
+          unzip -l "$APK" | grep 'assets/inputcontrols/profiles/controls-5.icp' > /dev/null || { echo "::error::Stunt Track Driver controls profile missing"; exit 1; }
+          if unzip -l "$APK" | grep -iE 'stunt\.exe|\.jam$' > /dev/null; then echo "::error::game files inside the APK"; exit 1; fi
+
+      # Without secrets the APK keeps the runner's throwaway debug signature,
+      # so each release would need an uninstall before upgrading. With them,
+      # every release is signed by the same key.
+      - name: Sign APK (optional)
+        env:
+          KEYSTORE64: ${{ secrets.KEYSTORE64 }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE64" ]; then
+            echo "::warning::KEYSTORE64 not set — keeping debug signing."
+            exit 0
+          fi
+          echo "$KEYSTORE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEY_PASSWORD --key-pass env:KEY_PASSWORD android/out/*.apk
+          "$APKSIGNER" verify android/out/*.apk
+          rm -f "$RUNNER_TEMP/release.jks"
+          echo "Release signing: using the configured keystore."
+
+      - name: Rename APK
+        run: mv android/out/*.apk android/out/hwstd-android-arm64.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: android/out/hwstd-android-arm64.apk
+          retention-days: 30

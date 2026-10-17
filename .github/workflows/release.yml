@@ -23,8 +23,14 @@ jobs:
     with:
       ref: ${{ github.sha }}
 
+  build-android:
+    uses: ./.github/workflows/android.yml
+    with:
+      ref: ${{ github.sha }}
+    secrets: inherit
+
   release:
-    needs: [resolve-version, build-portmaster]
+    needs: [resolve-version, build-portmaster, build-android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -33,6 +39,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: portmaster-zip
+          path: dist/
+
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
           path: dist/
 
       - name: Create GitHub Release
@@ -47,10 +59,19 @@ jobs:
             | Platform | File | Notes |
             |--|--|--|
             | 🎮 PortMaster (ARM64 handhelds) | `hwstd.zip` | Tested on Knulli (RG34XX-SP, H700). Needs the Westonpack runtime (`weston_pkg_0.2`), which PortMaster downloads. |
+            | 🤖 Android (arm64) | `hwstd-android-arm64.apk` | Built on Winlator (Wine + Box64). Replaces an installed Winlator (same package id). Tested on an Android 14 emulator. |
 
             ### PortMaster install
             1. Extract `hwstd.zip` into your `ports/` folder (it creates `Hot Wheels Stunt Track Driver.sh` and `hwstd/`).
             2. Copy everything inside the CD's `setup/hot98/` folder into `ports/hwstd/gamedata/`, or drop the CD image (`.iso`) into `ports/hwstd/`.
             3. Refresh the game list and start it from Ports. The first launch prepares Wine and takes a couple of minutes.
-          files: dist/hwstd.zip
+
+            ### Android install
+            1. Install `hwstd-android-arm64.apk` (uninstall Winlator first if you have it) and open **Stunt Track Driver**.
+            2. Allow storage access and wait for the system files to install (first launch only).
+            3. Pick the game's `.iso` in the file picker. The game files are copied into the app, then the game starts.
+            4. Touch: drag to move the mouse, tap to click; on-screen arrows drive. Xbox-style gamepads are mapped too (not yet tested on a real device). Press Back for **Game Settings** (hide controls, stretch screen, gamepad).
+          files: |
+            dist/hwstd.zip
+            dist/hwstd-android-arm64.apk
           prerelease: false
