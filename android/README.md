@@ -1,126 +1,126 @@
-# Hot Wheels: Stunt Track Driver no Android
+# Hot Wheels: Stunt Track Driver on Android
 
-`build_apk.sh` gera um APK arm64 que abre o jogo direto, sem passar pela interface do Winlator.
-O APK não contém nenhum arquivo do jogo: no primeiro uso ele pede a sua ISO.
+`build_apk.sh` builds an arm64 APK that boots straight into the game, without going through the Winlator interface.
+The APK contains no game files: on first launch it asks for your own ISO.
 
-## Abordagem
+## Approach
 
-Fork mínimo do [Winlator](https://github.com/brunodev85/winlator-app) (Wine + Box64 + servidor X próprio, LGPL-2.1).
-O script baixa o código do Winlator num commit fixo, aplica `winlator.patch`, copia `overlay/` por cima e compila.
+A small fork of [Winlator](https://github.com/brunodev85/winlator-app) (Wine + Box64 + its own X server, LGPL-2.1).
+The script fetches Winlator at a pinned commit, applies `winlator.patch`, copies `overlay/` on top and builds it.
 
-Alternativas descartadas:
+Alternatives considered:
 
-- **App próprio com Box64 + Wine + Termux-X11**: seria preciso recompilar glibc, Wine e Box64 para Android e escrever o app. Dá meses de trabalho para chegar ao que o Winlator já entrega.
-- **Forks maiores (Winlator Ludashi/cmod, GameNative)**: APKs de 550 a 700 MB contra cerca de 160 MB do upstream, e nada que este jogo precise (ele usa DirectDraw por software, sem 3D acelerado).
+- **A new app bundling Box64 + Wine + Termux-X11**: it would mean rebuilding glibc, Wine and Box64 for Android and writing the app, months of work to reach what Winlator already does.
+- **Bigger forks (Winlator Ludashi/cmod, GameNative)**: 550 to 700 MB APKs against about 160 MB for upstream, and nothing this game needs (it uses software DirectDraw, no accelerated 3D).
 
-O que muda em relação ao Winlator (cerca de 25 linhas de patch e três arquivos novos):
+What changes compared to Winlator (about 25 lines of patch and four new files):
 
-| Arquivo | O quê |
+| File | What it does |
 |---|---|
-| `overlay/.../StuntLauncher.java` | Ao abrir o app: cria o container "Stunt Track Driver" uma vez, pede a ISO, copia `SETUP/HOT98` para `C:\hot98` e lança `stunt.exe`. Também tem o diálogo Game Settings |
-| `overlay/.../IsoExtractor.java` | Leitor ISO 9660 mínimo, sem dependências |
-| `overlay/.../controls-5.icp` | Perfil de controles: botões na tela e mapeamento de qualquer gamepad |
-| `rename_package.py` | Move os caminhos embutidos nos assets do Winlator para o ID do app (ver abaixo) |
-| `winlator.patch` | Muda o ID do app para `com.hwstd.td`; chama o StuntLauncher depois da instalação do sistema; fecha o app quando o jogo fecha; item Game Settings no menu do jogo; aceita o id de controle `*` (qualquer gamepad); faz o analógico chegar ao perfil antes do bridge XInput; controles escondidos deixam de capturar toques; o X server recusa grab de ponteiro em janela desabilitada (ver abaixo); renomeia o app |
+| `overlay/.../StuntLauncher.java` | On app start: creates the "Stunt Track Driver" container once, asks for the ISO, copies `SETUP/HOT98` to `C:\hot98` and launches `stunt.exe`. Also holds the Game Settings dialog |
+| `overlay/.../IsoExtractor.java` | Minimal ISO 9660 reader, no dependencies |
+| `overlay/.../controls-5.icp` | Controls profile: on-screen buttons and a mapping for any gamepad |
+| `rename_package.py` | Moves the paths baked into Winlator's assets to the app's package id (see below) |
+| `winlator.patch` | Sets the package id to `com.hwstd.td`; calls StuntLauncher after the system files are installed; closes the app when the game exits; adds Game Settings to the in-game menu; accepts the `*` controller id (any gamepad); lets stick motion reach the profile before the XInput bridge; hidden controls no longer catch touches; the X server refuses pointer grabs on disabled windows (see below); renames the app |
 
-O app usa o ID próprio `com.hwstd.td` e instala ao lado de um Winlator.
-Os binários pré-compilados do Winlator (rootfs, Box64, drivers) têm o caminho `/data/data/com.winlator` embutido em cerca de 460 lugares: RPATH, interpretador ELF, caminhos do glibc.
-Como `com.hwstd.td` tem o mesmo tamanho de `com.winlator`, o `rename_package.py` troca esse caminho byte a byte dentro dos `.tzst` e regrava os cabeçalhos tar (symlinks e checksums).
-O patch faz o mesmo nos headers C, no `AppUtils.java` e na autoridade do FileProvider.
-Para mudar o ID, ele precisa continuar com 12 caracteres; altere `PACKAGE_ID` no `build_apk.sh` e as ocorrências de `com.hwstd.td` no `winlator.patch`.
+The app has its own package id, `com.hwstd.td`, and installs next to Winlator.
+Winlator's prebuilt binaries (rootfs, Box64, drivers) have `/data/data/com.winlator` baked into about 460 places: RPATH, ELF interpreter, glibc paths.
+`com.hwstd.td` has the same length as `com.winlator`, so `rename_package.py` replaces that path byte for byte inside the `.tzst` archives and rewrites the tar headers (symlinks and checksums).
+The patch does the same in the C headers, `AppUtils.java` and the FileProvider authority.
+To change the id, keep it at 12 characters, and update `PACKAGE_ID` in `build_apk.sh` and the `com.hwstd.td` occurrences in `winlator.patch`.
 
-## Gerar o APK
+## Building the APK
 
-Requisitos: git, python3, zstd, JDK 17 a 21 e o Android SDK com `sdkmanager`.
-O script instala sozinho o NDK 24, o CMake 3.22.1 e a plataforma 35.
-No macOS, `brew install openjdk@21 android-commandlinetools` resolve.
+Requirements: git, python3, zstd, JDK 17 to 21 and the Android SDK with `sdkmanager`.
+The script installs NDK 24, CMake 3.22.1 and platform 35 by itself.
+On macOS, `brew install openjdk@21 android-commandlinetools` covers it.
 
 ```bash
 android/build_apk.sh
 ```
 
-A saída fica em `android/out/StuntTrackDriver-winlator-<commit>.apk`, com cerca de 160 MB.
-O primeiro build baixa cerca de 330 MB de código e assets do Winlator para `android/.cache/`.
-Os assets incluem o rootfs com Wine 10.10 e Box64 0.4.4 já compilados pelo autor do Winlator: o script não os recompila.
+The APK lands in `android/out/StuntTrackDriver-winlator-<commit>.apk` (about 160 MB).
+The first build downloads about 330 MB of Winlator source and assets into `android/.cache/`.
+The assets include the rootfs with Wine 10.10 and Box64 0.4.4, prebuilt by the Winlator author: the script does not rebuild them.
 
-## Usar
+## Usage
 
-1. Instale o APK (`adb install -r android/out/*.apk`) e abra **Stunt Track Driver**.
-2. Aceite a permissão de armazenamento e espere a instalação dos arquivos de sistema (só na primeira vez).
-3. Escolha a ISO do jogo no seletor de arquivos. A pasta `SETUP/HOT98` (cerca de 470 MB) é copiada para dentro do app, então a ISO pode ser apagada depois.
-4. O jogo abre. Ao sair do jogo o app fecha; abrir de novo vai direto para o jogo.
+1. Install the APK (`adb install -r android/out/*.apk`) and open **Stunt Track Driver**.
+2. Allow storage access and wait for the system files to install (first launch only).
+3. Pick the game's ISO in the file picker. The `SETUP/HOT98` folder (about 470 MB) is copied into the app, so the ISO can be deleted afterwards.
+4. The game starts. Quitting the game closes the app; opening it again goes straight to the game.
 
-Se você cancelar o seletor, a interface normal do Winlator aparece; feche e abra o app para tentar de novo.
+If you cancel the picker, the regular Winlator interface shows up; close and reopen the app to try again.
 
-## Controles
+## Controls
 
-**Touch**: o centro da tela funciona como touchpad (arrastar move o mouse, tocar clica) para os menus.
-Botões ◀ ▶ ficam embaixo à esquerda; acelerar (▲) e frear (▼) ficam à direita; ESC e ENTER ficam no topo.
+**Touch**: the middle of the screen works as a touchpad for the menus (drag to move the mouse, tap to click).
+◀ ▶ are at the bottom left; accelerate (▲) and brake (▼) are on the right; ESC and ENTER are at the top.
 
-**Gamepad estilo Xbox** (qualquer controle que o Android reconheça; o perfil usa o id `*`):
+**Xbox-style gamepad** (any controller Android recognizes; the profile uses the `*` id):
 
-| Controle | Tecla ou mouse |
+| Control | Key or mouse |
 |---|---|
-| Analógico esquerdo, D-pad | Setas |
-| RT / LT | ↑ acelerar / ↓ frear |
-| Analógico direito | Move o mouse |
-| A | Clique esquerdo |
+| Left stick, D-pad | Arrow keys |
+| RT / LT | ↑ accelerate / ↓ brake |
+| Right stick | Moves the mouse |
+| A | Left click |
 | B, Back | ESC |
 | X, Start | ENTER |
-| Y | Espaço |
+| Y | Space |
 
-Para mudar os botões: menu lateral do jogo (botão voltar) → Input Controls → perfil "Stunt Track Driver".
+To change the bindings: in-game side menu (Back button) → Input Controls → "Stunt Track Driver" profile.
 
 ## Game Settings
 
-No jogo, o botão voltar do Android abre o menu lateral; o primeiro item é **Game Settings**.
-As opções valem na hora e ficam salvas para as próximas aberturas:
+In the game, Android's Back button opens the side menu; the first item is **Game Settings**.
+Changes apply immediately and are kept for the next launches:
 
-| Opção | Padrão | Efeito |
+| Option | Default | Effect |
 |---|---|---|
-| Show touch controls | ligado | Desligado: some o overlay e os botões invisíveis não capturam toques (a tela inteira vira touchpad). O gamepad continua funcionando |
-| Stretch to fill screen | desligado | Ligado: estica 640x480 para a tela toda. Desligado: mantém 4:3 com barras laterais |
-| Gamepad support | ligado | Desligado: o gamepad deixa de ser mapeado para teclado e mouse |
+| Show touch controls | on | Off: the overlay disappears and the hidden buttons don't catch touches (the whole screen becomes a touchpad). The gamepad keeps working |
+| Stretch to fill screen | off | On: stretches 640x480 to the whole screen. Off: keeps 4:3 with side bars |
+| Gamepad support | on | Off: the gamepad is no longer mapped to keyboard and mouse |
 
-## Mouse nos menus: bug do Winlator corrigido
+## Menu mouse input: Winlator fix
 
-O jogo lê o mouse via DirectInput exclusivo com `SetEventNotification`: só consulta o mouse quando o DirectInput sinaliza um evento.
-No Winlator sem correção, o mouse não respondia nos menus.
-A causa: o Wine faz `XGrabPointer` na "clip window" dele, que pertence ao `explorer.exe`. O workaround de desktop do Winlator desabilita essa janela, e um grab numa janela desabilitada engole todos os eventos de ponteiro.
-O patch faz o X server recusar grab em janela desabilitada (`GrabRequests.java`). O Wine segue sem grab e os eventos chegam.
+The game reads the mouse through exclusive DirectInput with `SetEventNotification`, so it only looks at the mouse when DirectInput signals an event.
+On unpatched Winlator the mouse did nothing in the menus.
+The cause: Wine calls `XGrabPointer` on its clip window, which belongs to `explorer.exe`. Winlator's desktop workaround disables that window, and a grab on a disabled window swallows every pointer event.
+The patch makes the X server refuse grabs on disabled windows (`GrabRequests.java`). Wine carries on without the grab and the events get through.
 
-## Configuração do Wine aplicada
+## Wine configuration
 
-O StuntLauncher aplica a mesma configuração validada no Linux (Box64 + Wine 11):
+StuntLauncher applies the same configuration that works on Linux (Box64 + Wine 11):
 
-| Configuração | Como |
+| Setting | How |
 |---|---|
-| ddraw builtin com renderer GDI, sem GPU | Container com DX wrapper `wined3d` e config `renderer=gdi`. O Winlator vira isso em `WINE_D3D_CONFIG`, que tem precedência sobre `HKCU\Software\Wine\Direct3D\renderer`; por isso o valor não vai no registro |
-| Chave `HKLM\Software\Mattel\Stunt Track Driver\1.0` | Escrita vazia no `system.reg`, também em `Wow6432Node` (visão de 32 bits) |
-| DLLs nativas do Winlator (wincomponents) | Todas desligadas: só builtins do Wine |
-| Resolução | Tela X de 640x480 (o jogo usa 640x480; F1 alterna para 320x240) |
-| Áudio | ALSA do Winlator, saída para o Android. Sem áudio o jogo para em "Sound card not found" |
+| Builtin ddraw on the GDI renderer, no GPU | Container with the `wined3d` DX wrapper and `renderer=gdi`. Winlator turns this into `WINE_D3D_CONFIG`, which takes precedence over `HKCU\Software\Wine\Direct3D\renderer`, so the value is not written to the registry |
+| `HKLM\Software\Mattel\Stunt Track Driver\1.0` key | Written empty to `system.reg`, also under `Wow6432Node` (32-bit view) |
+| Winlator's native DLLs (wincomponents) | All off: Wine builtins only |
+| Resolution | 640x480 X screen (the game runs at 640x480; F1 switches to 320x240) |
+| Audio | Winlator's ALSA, output to Android. Without audio the game stops at "Sound card not found" |
 
-O prompt do Wine Mono não apareceu nos testes: o prefixo do Winlator já vem pronto.
+The Wine Mono prompt did not show up in testing: Winlator's prefix comes ready.
 
-## Validação
+## Testing
 
-Feita em 2026-10-17 num emulador Android 14 arm64 (AVD Pixel 7, Mac M1), com APK gerado do zero pelo script:
+Done on 2026-10-17 on an arm64 Android 14 emulator (Pixel 7 AVD, M1 Mac), with an APK built from scratch by the script:
 
-| Item | Resultado |
+| Item | Result |
 |---|---|
-| Build do APK do zero (`build_apk.sh`) | OK, 162 MB. A troca de caminhos nos assets soma cerca de 45 s ao build |
-| Primeira abertura: instala o sistema, cria o container, abre o seletor | OK |
-| Cópia da ISO e lançamento direto do `stunt.exe` | OK (o extrator também foi conferido no Mac: 246 arquivos, md5 igual ao da ISO) |
-| Menus por touch (touchpad) | OK depois da correção do grab, nos 4 inícios testados (2 deles com instalação limpa) |
-| Corrida 3D, acelerar pelo botão na tela | OK |
-| Game Settings: esconder overlay, esticar tela, persistência | OK |
-| ID próprio `com.hwstd.td` instalado ao lado de um app `com.winlator` | OK: os dois abrem; com o ID novo o jogo chega à corrida |
-| Gamepad | **Não validado**: o emulador não tem gamepad virtual. O mapeamento segue o formato de perfil do Winlator, mas falta testar num aparelho com controle |
-| Som | Não verificado (emulador sem saída de áudio audível); o jogo não travou em "Sound card not found" |
-| Aparelho físico e desempenho | Não testado |
+| APK build from scratch (`build_apk.sh`) | OK, 162 MB. Moving the asset paths adds about 45 s to the build |
+| First launch: installs system files, creates the container, opens the picker | OK |
+| ISO copy and direct `stunt.exe` launch | OK (the extractor was also checked on a Mac: 246 files, md5 matches the ISO) |
+| Menus by touch (touchpad) | OK after the grab fix, in all 4 launches tested (2 of them clean installs) |
+| 3D race, accelerating with the on-screen button | OK |
+| Game Settings: hide overlay, stretch screen, saved across launches | OK |
+| Own id `com.hwstd.td` installed next to a `com.winlator` app | OK: both open; with the new id the game reaches the race |
+| Gamepad | **Not tested**: the emulator has no virtual gamepad. The mapping follows Winlator's profile format, but still needs a test on a device with a controller |
+| Sound | Not checked (no audible output on the emulator); the game did not stop at "Sound card not found" |
+| Physical device and performance | Not tested |
 
-## Licença
+## License
 
-O patch e o overlay são derivados do Winlator e seguem a LGPL-2.1.
-O APK gerado redistribui Winlator, Wine, Box64 e Mesa sob as licenças deles. Não publique APKs com arquivos do jogo.
+The patch and the overlay derive from Winlator and are under LGPL-2.1.
+The built APK redistributes Winlator, Wine, Box64 and Mesa under their own licenses. Do not publish APKs that include game files.

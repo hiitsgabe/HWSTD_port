@@ -124,7 +124,7 @@ public final class StuntLauncher {
         catch (IOException e) {}
     }
 
-    // --- In-game settings (menu lateral -> Game Settings). Stored in the default SharedPreferences.
+    // --- In-game settings (side menu -> Game Settings). Stored in the default SharedPreferences.
     private static final String[] SETTING_KEYS = {"stunt_show_touch_controls", "stunt_stretch_screen", "stunt_gamepad"};
     private static final String[] SETTING_LABELS = {"Show touch controls", "Stretch to fill screen (off: keep 4:3)", "Gamepad support"};
     private static final boolean[] SETTING_DEFAULTS = {true, false, true};
