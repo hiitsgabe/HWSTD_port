@@ -22,7 +22,7 @@ What changes compared to Winlator (about 25 lines of patch and four new files):
 | `overlay/.../controls-5.icp` | Controls profile: on-screen buttons and a mapping for any gamepad |
 | `overlay/.../res/` | Launcher icon (vector, original art) |
 | `rename_package.py` | Moves the paths baked into Winlator's assets to the app's package id (see below) |
-| `winlator.patch` | Sets the package id to `com.hwstd.td`; calls StuntLauncher after the system files are installed; closes the app when the game exits; adds Game Settings to the in-game menu; Back/Select open that menu, also from a gamepad, and the gamepad navigates it; accepts the `*` controller id (any gamepad); lets stick motion reach the profile before the XInput bridge; a key shared by the stick, d-pad and a trigger is released only when all of them are (motion events used to release the accelerator while steering); B sends Esc in a race and Space elsewhere (see Controls); hidden controls no longer catch touches; the X server refuses pointer grabs on disabled windows (see below); renames the app |
+| `winlator.patch` | Sets the package id to `com.hwstd.td`; calls StuntLauncher after the system files are installed; closes the app when the game exits; adds Game Settings to the in-game menu; Select (or the system Back) opens that menu, and the gamepad navigates it; accepts the `*` controller id (any gamepad); lets stick motion reach the profile before the XInput bridge; a key shared by the stick, d-pad and a trigger is released only when all of them are (motion events used to release the accelerator while steering); B sends Esc in a race and Space elsewhere (see Controls); hidden controls no longer catch touches; the X server refuses pointer grabs on disabled windows (see below); renames the app |
 
 The app has its own package id, `com.hwstd.td`, and installs next to Winlator.
 Winlator's prebuilt binaries (rootfs, Box64, drivers) have `/data/data/com.winlator` baked into about 460 places: RPATH, ELF interpreter, glibc paths.
@@ -71,16 +71,16 @@ The on-screen ESC works like the gamepad's B (below).
 | B | ESC during a race (pause / leave), Space elsewhere (skips the intro) |
 | X, Start | ENTER |
 | Y | Space |
-| Select, Back | Side menu (Game Settings, Exit) |
+| Select | Side menu (Game Settings, Exit) |
 
 Esc quits the game from its menus, which closes the app, so B never sends it there: the profile binds B to F12 and the app looks at the race HUD (the Hot Wheels logo, same pixels as the handheld's `tools/bkey.py`) to pick Esc or Space.
-To quit, use Exit in the side menu.
+Some handhelds (Anbernic) send B as Back; a Back key from a gamepad works as B. To quit, use Exit in the side menu.
 
 To change the bindings: in-game side menu (Select or Back) → Input Controls → "Stunt Track Driver" profile.
 
 ## Game Settings
 
-In the game, Back or the gamepad's Select opens the side menu (the d-pad and A navigate it, B closes it); the first item is **Game Settings**.
+In the game, the gamepad's Select (or the system Back gesture) opens the side menu (the d-pad and A navigate it, B closes it); the first item is **Game Settings**.
 Changes apply immediately and are kept for the next launches:
 
 | Option | Default | Effect |

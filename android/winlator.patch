@@ -64,10 +64,18 @@ index 2314314..f66fc89 100644
  
  #define CLOSEFD(x) \
 diff --git a/app/src/main/java/com/winlator/XServerDisplayActivity.java b/app/src/main/java/com/winlator/XServerDisplayActivity.java
-index 667f1b3..c6cefb1 100644
+index 667f1b3..a8fcc25 100644
 --- a/app/src/main/java/com/winlator/XServerDisplayActivity.java
 +++ b/app/src/main/java/com/winlator/XServerDisplayActivity.java
-@@ -361,6 +361,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+@@ -62,6 +62,7 @@ import com.winlator.core.WineRegistryEditor;
+ import com.winlator.core.WineStartMenuCreator;
+ import com.winlator.core.WineThemeManager;
+ import com.winlator.core.WineUtils;
++import com.winlator.inputcontrols.Binding;
+ import com.winlator.inputcontrols.ControlsProfile;
+ import com.winlator.inputcontrols.ExternalController;
+ import com.winlator.inputcontrols.InputControlsManager;
+@@ -361,6 +362,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
      public boolean onNavigationItemSelected(@NonNull MenuItem item) {
          final GLRenderer renderer = xServerView.getRenderer();
          switch (item.getItemId()) {
@@ -78,7 +86,7 @@ index 667f1b3..c6cefb1 100644
              case R.id.menu_item_keyboard:
                  AppUtils.showKeyboard(this);
                  drawerLayout.closeDrawers();
-@@ -432,6 +436,11 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+@@ -432,6 +437,11 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
          if (environment != null) environment.stopEnvironmentComponents();
  
          Intent intent = getIntent();
@@ -90,7 +98,7 @@ index 667f1b3..c6cefb1 100644
          if (intent.hasExtra("exec_path")) {
              AppUtils.RestartApplicationOptions options = new AppUtils.RestartApplicationOptions();
              options.containerId = container.id;
-@@ -626,6 +635,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+@@ -626,6 +636,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                  if (profile != null) showInputControls(profile);
              }
          }
@@ -98,7 +106,7 @@ index 667f1b3..c6cefb1 100644
  
          if (MainActivity.DEBUG_MODE) rootView.addView(AppUtils.createDebugMsgTextView(this));
          AppUtils.observeSoftKeyboardVisibility(drawerLayout, renderer::setScreenOffsetYRelativeToCursor);
-@@ -796,11 +806,22 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+@@ -796,11 +807,30 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
  
      @Override
      public boolean dispatchGenericMotionEvent(MotionEvent event) {
@@ -112,13 +120,21 @@ index 667f1b3..c6cefb1 100644
  
      @Override
      public boolean dispatchKeyEvent(KeyEvent event) {
-+        // Back and Select open the side menu (Game Settings), also from a gamepad, whose keys never reach onBackPressed.
-+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_SELECT) {
++        int keyCode = event.getKeyCode();
++        boolean drawerOpen = drawerLayout.isDrawerOpen(GravityCompat.START);
++        boolean gamepadBack = keyCode == KeyEvent.KEYCODE_BACK && ExternalController.isGameController(event.getDevice());
++        // Select, or the system Back, opens the side menu (Game Settings); gamepad keys never reach onBackPressed.
++        if (keyCode == KeyEvent.KEYCODE_BUTTON_SELECT || (keyCode == KeyEvent.KEYCODE_BACK && (!gamepadBack || drawerOpen))) {
 +            if (event.getAction() == KeyEvent.ACTION_UP) onBackPressed();
 +            return true;
 +        }
 +        // Side menu open: the gamepad drives it (A falls back to DPAD_CENTER, B to BACK).
-+        if (drawerLayout.isDrawerOpen(GravityCompat.START)) return super.dispatchKeyEvent(event);
++        if (drawerOpen) return super.dispatchKeyEvent(event);
++        // Some handhelds (Anbernic) send B as BACK from the gamepad: same as the B binding (Esc in a race, Space elsewhere).
++        if (gamepadBack) {
++            if (event.getRepeatCount() == 0) inputControlsView.handleInputEvent(Binding.KEY_F12, event.getAction() == KeyEvent.ACTION_DOWN);
++            return true;
++        }
          return (!inputControlsView.onKeyEvent(event) && !winHandler.onKeyEvent(event) && xServer.keyboard.onKeyEvent(event)) ||
                 (!ExternalController.isGameController(event.getDevice()) && super.dispatchKeyEvent(event));
      }
