@@ -4,6 +4,10 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.view.Gravity;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 
@@ -128,7 +132,7 @@ public final class StuntLauncher {
         catch (IOException e) {}
     }
 
-    // --- In-game settings (side menu -> Game Settings). Stored in the default SharedPreferences.
+    // --- In-game settings (gear button or the gamepad's Select). Stored in the default SharedPreferences.
     private static final String[] SETTING_KEYS = {"stunt_show_touch_controls", "stunt_stretch_screen", "stunt_gamepad"};
     private static final String[] SETTING_LABELS = {"Show touch controls", "Stretch to fill screen (off: keep 4:3)", "Gamepad support"};
     private static final boolean[] SETTING_DEFAULTS = {true, false, true};
@@ -158,6 +162,7 @@ public final class StuntLauncher {
             .setTitle("Game Settings")
             .setMultiChoiceItems(SETTING_LABELS, values, (dialog, which, checked) -> values[which] = checked)
             .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton("Quit game", (dialog, which) -> activity.exit())
             .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                 SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(activity).edit();
                 for (int i = 0; i < values.length; i++) editor.putBoolean(SETTING_KEYS[i], values[i]);
@@ -165,6 +170,23 @@ public final class StuntLauncher {
                 applySettings(activity);
             })
             .show();
+    }
+
+    /** Gear in the top right corner, over the bar above the 4:3 picture. Always shown, so hidden touch controls can come back. */
+    public static void addSettingsButton(XServerDisplayActivity activity, FrameLayout rootView) {
+        float density = activity.getResources().getDisplayMetrics().density;
+        ImageButton button = new ImageButton(activity);
+        button.setImageResource(R.drawable.icon_settings);
+        button.setColorFilter(Color.WHITE);
+        button.setScaleType(ImageButton.ScaleType.FIT_CENTER);
+        button.setBackground(null);
+        button.setPadding((int)(10 * density), (int)(10 * density), (int)(10 * density), (int)(10 * density));
+        button.setAlpha(0.7f);
+        button.setFocusable(false); // gamepad keys keep going to the game
+        button.setOnClickListener((view) -> showSettingsDialog(activity));
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams((int)(48 * density), (int)(48 * density), Gravity.TOP | Gravity.END);
+        params.setMargins(0, (int)(4 * density), (int)(4 * density), 0); // clear of rounded screen corners
+        rootView.addView(button, params);
     }
 
     // --- B button. Esc quits the game from its menus, so the profile binds B to F12 and InputControlsView sends

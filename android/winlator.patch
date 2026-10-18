@@ -64,7 +64,7 @@ index 2314314..f66fc89 100644
  
  #define CLOSEFD(x) \
 diff --git a/app/src/main/java/com/winlator/XServerDisplayActivity.java b/app/src/main/java/com/winlator/XServerDisplayActivity.java
-index 667f1b3..a8fcc25 100644
+index 667f1b3..31b754a 100644
 --- a/app/src/main/java/com/winlator/XServerDisplayActivity.java
 +++ b/app/src/main/java/com/winlator/XServerDisplayActivity.java
 @@ -62,6 +62,7 @@ import com.winlator.core.WineRegistryEditor;
@@ -75,18 +75,13 @@ index 667f1b3..a8fcc25 100644
  import com.winlator.inputcontrols.ControlsProfile;
  import com.winlator.inputcontrols.ExternalController;
  import com.winlator.inputcontrols.InputControlsManager;
-@@ -361,6 +362,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
-     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-         final GLRenderer renderer = xServerView.getRenderer();
-         switch (item.getItemId()) {
-+            case R.id.menu_item_stunt_settings:
-+                StuntLauncher.showSettingsDialog(this);
-+                drawerLayout.closeDrawers();
-+                break;
-             case R.id.menu_item_keyboard:
-                 AppUtils.showKeyboard(this);
-                 drawerLayout.closeDrawers();
-@@ -432,6 +437,11 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+@@ -427,11 +428,16 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+         return preferences;
+     }
+ 
+-    private void exit() {
++    void exit() { // also StuntLauncher's Quit game
+         winHandler.stop();
          if (environment != null) environment.stopEnvironmentComponents();
  
          Intent intent = getIntent();
@@ -98,15 +93,18 @@ index 667f1b3..a8fcc25 100644
          if (intent.hasExtra("exec_path")) {
              AppUtils.RestartApplicationOptions options = new AppUtils.RestartApplicationOptions();
              options.containerId = container.id;
-@@ -626,6 +636,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+@@ -626,6 +632,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                  if (profile != null) showInputControls(profile);
              }
          }
-+        if (getIntent().getBooleanExtra("quit_on_exit", false)) StuntLauncher.applySettings(this);
++        if (getIntent().getBooleanExtra("quit_on_exit", false)) {
++            StuntLauncher.applySettings(this);
++            StuntLauncher.addSettingsButton(this, rootView);
++        }
  
          if (MainActivity.DEBUG_MODE) rootView.addView(AppUtils.createDebugMsgTextView(this));
          AppUtils.observeSoftKeyboardVisibility(drawerLayout, renderer::setScreenOffsetYRelativeToCursor);
-@@ -796,11 +807,30 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+@@ -796,11 +806,34 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
  
      @Override
      public boolean dispatchGenericMotionEvent(MotionEvent event) {
@@ -123,8 +121,12 @@ index 667f1b3..a8fcc25 100644
 +        int keyCode = event.getKeyCode();
 +        boolean drawerOpen = drawerLayout.isDrawerOpen(GravityCompat.START);
 +        boolean gamepadBack = keyCode == KeyEvent.KEYCODE_BACK && ExternalController.isGameController(event.getDevice());
-+        // Select, or the system Back, opens the side menu (Game Settings); gamepad keys never reach onBackPressed.
-+        if (keyCode == KeyEvent.KEYCODE_BUTTON_SELECT || (keyCode == KeyEvent.KEYCODE_BACK && (!gamepadBack || drawerOpen))) {
++        // Select opens the game settings (like the gear button), the system Back Winlator's side menu.
++        if (keyCode == KeyEvent.KEYCODE_BUTTON_SELECT) {
++            if (event.getAction() == KeyEvent.ACTION_UP) StuntLauncher.showSettingsDialog(this);
++            return true;
++        }
++        if (keyCode == KeyEvent.KEYCODE_BACK && (!gamepadBack || drawerOpen)) { // gamepad keys never reach onBackPressed
 +            if (event.getAction() == KeyEvent.ACTION_UP) onBackPressed();
 +            return true;
 +        }
@@ -355,18 +357,6 @@ index 4ac0d58..a5d498c 100644
              status = Status.NOT_VIEWABLE;
          }
          else {
-diff --git a/app/src/main/res/menu/xserver_menu.xml b/app/src/main/res/menu/xserver_menu.xml
-index 81fd492..cbe5e26 100644
---- a/app/src/main/res/menu/xserver_menu.xml
-+++ b/app/src/main/res/menu/xserver_menu.xml
-@@ -2,6 +2,7 @@
- <menu
-   xmlns:android="http://schemas.android.com/apk/res/android">
-     <group android:checkableBehavior="none">
-+        <item android:icon="@drawable/icon_settings" android:id="@+id/menu_item_stunt_settings" android:title="Game Settings" />
-         <item android:icon="@drawable/icon_keyboard" android:id="@+id/menu_item_keyboard" android:title="@string/keyboard" />
-         <item android:icon="@drawable/icon_input_controls" android:id="@+id/menu_item_input_controls" android:title="@string/input_controls" />
-         <item android:icon="@drawable/icon_fullscreen" android:id="@+id/menu_item_toggle_fullscreen" android:title="@string/toggle_fullscreen" />
 diff --git a/app/src/main/res/values-pt/strings.xml b/app/src/main/res/values-pt/strings.xml
 index e2d342c..79425e2 100644
 --- a/app/src/main/res/values-pt/strings.xml
