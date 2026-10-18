@@ -151,7 +151,7 @@ jobs:
             1. Install `hwstd-android-arm64.apk` and open **Stunt Track Driver**.
             2. Allow storage access and wait for the system files to install (first launch only).
             3. Pick the game's `.iso` in the file picker. The game files are copied into the app, then the game starts.
-            4. Touch: drag to move the mouse, tap to click; on-screen arrows drive. Xbox-style gamepads work too. Press Back for **Game Settings** (hide controls, stretch screen, gamepad).
+            4. Touch: drag to move the mouse, tap to click; on-screen arrows drive. Xbox-style gamepads work too. Press Back or Select for **Game Settings** (hide controls, stretch screen, gamepad).
 
             ### macOS install
             1. Unzip `HWSTD-macos.zip` and move **Hot Wheels Stunt Track Driver** to Applications.

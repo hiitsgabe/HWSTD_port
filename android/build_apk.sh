@@ -65,6 +65,11 @@ git -C "$SRC" apply "$HERE/winlator.patch"
 cp -R "$HERE/overlay/." "$SRC/"
 # Own package id, so the app installs next to Winlator: move the paths baked into the prebuilt assets.
 python3 -I "$HERE/rename_package.py" "$SRC/app/src/main/assets" "$PACKAGE_ID"
+# Our version, not Winlator's. versionCode 1.2.3 -> 10203 stays above Winlator's 33, so it updates older builds.
+IFS=. read -r VMAJOR VMINOR VPATCH < "$HERE/../VERSION"
+sed -i.orig -e "s/versionCode [0-9]*/versionCode $((VMAJOR * 10000 + VMINOR * 100 + VPATCH))/" \
+            -e "s/versionName \".*\"/versionName \"$VMAJOR.$VMINOR.$VPATCH\"/" "$SRC/app/build.gradle"
+rm -f "$SRC/app/build.gradle.orig"
 echo "sdk.dir=$SDK" > "$SRC/local.properties"
 
 # --- Build. Upstream only configures the (minified, debug-signed) debug variant.

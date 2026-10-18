@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon: an orange loop track and a red car on the blue of the race HUD. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M37,53 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0" android:strokeColor="#B8410C" android:strokeWidth="10" />
+    <path android:pathData="M37,53 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0" android:strokeColor="#F7731E" android:strokeWidth="6" />
+    <path android:pathData="M4,72 L104,72" android:strokeColor="#B8410C" android:strokeWidth="10" />
+    <path android:pathData="M4,72 L104,72" android:strokeColor="#F7731E" android:strokeWidth="6" />
+    <path android:pathData="M24,64 L29,57 L40,56 L46,61 L52,62 L52,68 L24,68 Z" android:fillColor="#E3141B" />
+    <path android:pathData="M31,58.5 L39,58 L42.5,61 L30,61 Z" android:fillColor="#BFE3FF" />
+    <path android:pathData="M27,68 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 M42.5,68 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" android:fillColor="#222222" />
+</vector>

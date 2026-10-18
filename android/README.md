@@ -20,8 +20,9 @@ What changes compared to Winlator (about 25 lines of patch and four new files):
 | `overlay/.../StuntLauncher.java` | On app start: creates the "Stunt Track Driver" container once, asks for the ISO, copies `SETUP/HOT98` to `C:\hot98` and launches `stunt.exe`. Also holds the Game Settings dialog |
 | `overlay/.../IsoExtractor.java` | Minimal ISO 9660 reader, no dependencies |
 | `overlay/.../controls-5.icp` | Controls profile: on-screen buttons and a mapping for any gamepad |
+| `overlay/.../res/` | Launcher icon (vector, original art) |
 | `rename_package.py` | Moves the paths baked into Winlator's assets to the app's package id (see below) |
-| `winlator.patch` | Sets the package id to `com.hwstd.td`; calls StuntLauncher after the system files are installed; closes the app when the game exits; adds Game Settings to the in-game menu; accepts the `*` controller id (any gamepad); lets stick motion reach the profile before the XInput bridge; hidden controls no longer catch touches; the X server refuses pointer grabs on disabled windows (see below); renames the app |
+| `winlator.patch` | Sets the package id to `com.hwstd.td`; calls StuntLauncher after the system files are installed; closes the app when the game exits; adds Game Settings to the in-game menu; Back/Select open that menu, also from a gamepad, and the gamepad navigates it; accepts the `*` controller id (any gamepad); lets stick motion reach the profile before the XInput bridge; a key shared by the stick, d-pad and a trigger is released only when all of them are (motion events used to release the accelerator while steering); B sends Esc in a race and Space elsewhere (see Controls); hidden controls no longer catch touches; the X server refuses pointer grabs on disabled windows (see below); renames the app |
 
 The app has its own package id, `com.hwstd.td`, and installs next to Winlator.
 Winlator's prebuilt binaries (rootfs, Box64, drivers) have `/data/data/com.winlator` baked into about 460 places: RPATH, ELF interpreter, glibc paths.
@@ -39,6 +40,7 @@ On macOS, `brew install openjdk@21 android-commandlinetools` covers it.
 android/build_apk.sh
 ```
 
+The app version comes from `VERSION` (versionCode `major*10000 + minor*100 + patch`, above Winlator's, so it installs over older builds and refreshes the controls profile).
 The APK lands in `android/out/StuntTrackDriver-winlator-<commit>.apk` (about 160 MB).
 The first build downloads about 330 MB of Winlator source and assets into `android/.cache/`.
 The assets include the rootfs with Wine 10.10 and Box64 0.4.4, prebuilt by the Winlator author: the script does not rebuild them.
@@ -56,6 +58,7 @@ If you cancel the picker, the regular Winlator interface shows up; close and reo
 
 **Touch**: the middle of the screen works as a touchpad for the menus (drag to move the mouse, tap to click).
 ◀ ▶ are at the bottom left; accelerate (▲) and brake (▼) are on the right; ESC and ENTER are at the top.
+The on-screen ESC works like the gamepad's B (below).
 
 **Xbox-style gamepad** (any controller Android recognizes; the profile uses the `*` id):
 
@@ -65,15 +68,19 @@ If you cancel the picker, the regular Winlator interface shows up; close and reo
 | RT / LT | ↑ accelerate / ↓ brake |
 | Right stick | Moves the mouse |
 | A | Left click |
-| B, Back | ESC |
+| B | ESC during a race (pause / leave), Space elsewhere (skips the intro) |
 | X, Start | ENTER |
 | Y | Space |
+| Select, Back | Side menu (Game Settings, Exit) |
 
-To change the bindings: in-game side menu (Back button) → Input Controls → "Stunt Track Driver" profile.
+Esc quits the game from its menus, which closes the app, so B never sends it there: the profile binds B to F12 and the app looks at the race HUD (the Hot Wheels logo, same pixels as the handheld's `tools/bkey.py`) to pick Esc or Space.
+To quit, use Exit in the side menu.
+
+To change the bindings: in-game side menu (Select or Back) → Input Controls → "Stunt Track Driver" profile.
 
 ## Game Settings
 
-In the game, Android's Back button opens the side menu; the first item is **Game Settings**.
+In the game, Back or the gamepad's Select opens the side menu (the d-pad and A navigate it, B closes it); the first item is **Game Settings**.
 Changes apply immediately and are kept for the next launches:
 
 | Option | Default | Effect |

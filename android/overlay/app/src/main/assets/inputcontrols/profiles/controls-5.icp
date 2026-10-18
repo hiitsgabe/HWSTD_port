@@ -71,7 +71,7 @@
       "type": "BUTTON",
       "shape": "ROUND_RECT",
       "bindings": [
-        "KEY_ESC",
+        "KEY_F12",
         "NONE",
         "NONE",
         "NONE"
@@ -167,7 +167,7 @@
         },
         {
           "keyCode": 97,
-          "binding": "KEY_ESC"
+          "binding": "KEY_F12"
         },
         {
           "keyCode": 99,
@@ -180,10 +180,6 @@
         {
           "keyCode": 108,
           "binding": "KEY_ENTER"
-        },
-        {
-          "keyCode": 109,
-          "binding": "KEY_ESC"
         }
       ]
     }

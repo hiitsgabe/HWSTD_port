@@ -14,6 +14,10 @@ import com.winlator.container.ContainerManager;
 import com.winlator.core.AppUtils;
 import com.winlator.core.FileUtils;
 import com.winlator.renderer.GLRenderer;
+import com.winlator.xserver.Drawable;
+import com.winlator.xserver.Window;
+import com.winlator.xserver.XLock;
+import com.winlator.xserver.XServer;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -161,6 +165,35 @@ public final class StuntLauncher {
                 applySettings(activity);
             })
             .show();
+    }
+
+    // --- B button. Esc quits the game from its menus, so the profile binds B to F12 and InputControlsView sends
+    // Esc during a race, Space elsewhere (skips the intro, harmless on the menus). Same idea as the handheld's tools/bkey.py.
+    // A race is recognised by the Hot Wheels logo on the HUD: {x, y, 0xRRGGBB} in game coordinates (640x480).
+    private static final int[][] RACE_PIXELS = {
+        {142, 440, 0xfcfcfc}, {96, 436, 0xfcfc00}, {148, 442, 0xf4f4f4}, {88, 448, 0xfcfc00}, {102, 440, 0xfcfc7c}, {84, 448, 0xfcfc7c}
+    };
+
+    public static boolean isRace(XServer xServer) {
+        try (XLock lock = xServer.lock(XServer.Lockable.WINDOW_MANAGER, XServer.Lockable.DRAWABLE_MANAGER)) {
+            return isRace(xServer.windowManager.rootWindow);
+        }
+    }
+
+    private static boolean isRace(Window window) {
+        Drawable content = window.getContent();
+        if (window.getMapState() == Window.MapState.VIEWABLE && content != null && content.width >= 640 && content.height >= 480) {
+            int hits = 0;
+            for (int[] pixel : RACE_PIXELS) {
+                int rgb = content.getImage((short)pixel[0], (short)pixel[1], (short)1, (short)1).getInt(0); // BGRA bytes
+                boolean match = true;
+                for (int shift = 0; shift <= 16; shift += 8) match &= Math.abs(((rgb >> shift) & 255) - ((pixel[2] >> shift) & 255)) <= 24;
+                if (match) hits++;
+            }
+            if (hits >= 5) return true;
+        }
+        for (Window child : window.getChildren()) if (isRace(child)) return true;
+        return false;
     }
 
     private static void launch(Activity activity, Container container) {

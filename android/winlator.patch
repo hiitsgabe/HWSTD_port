@@ -64,7 +64,7 @@ index 2314314..f66fc89 100644
  
  #define CLOSEFD(x) \
 diff --git a/app/src/main/java/com/winlator/XServerDisplayActivity.java b/app/src/main/java/com/winlator/XServerDisplayActivity.java
-index 667f1b3..a72f231 100644
+index 667f1b3..c6cefb1 100644
 --- a/app/src/main/java/com/winlator/XServerDisplayActivity.java
 +++ b/app/src/main/java/com/winlator/XServerDisplayActivity.java
 @@ -361,6 +361,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
@@ -98,17 +98,30 @@ index 667f1b3..a72f231 100644
  
          if (MainActivity.DEBUG_MODE) rootView.addView(AppUtils.createDebugMsgTextView(this));
          AppUtils.observeSoftKeyboardVisibility(drawerLayout, renderer::setScreenOffsetYRelativeToCursor);
-@@ -796,7 +806,9 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+@@ -796,11 +806,22 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
  
      @Override
      public boolean dispatchGenericMotionEvent(MotionEvent event) {
 -        return !winHandler.onGenericMotionEvent(event) && !touchpadView.onExternalMouseEvent(event) && super.dispatchGenericMotionEvent(event);
++        // Side menu open: let Android turn the d-pad into focus navigation.
++        if (drawerLayout.isDrawerOpen(GravityCompat.START)) return super.dispatchGenericMotionEvent(event);
 +        // Profile controller bindings first, like dispatchKeyEvent does for buttons; otherwise sticks never reach them.
 +        return inputControlsView.onGenericMotionEvent(event) ||
 +               (!winHandler.onGenericMotionEvent(event) && !touchpadView.onExternalMouseEvent(event) && super.dispatchGenericMotionEvent(event));
      }
  
      @Override
+     public boolean dispatchKeyEvent(KeyEvent event) {
++        // Back and Select open the side menu (Game Settings), also from a gamepad, whose keys never reach onBackPressed.
++        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_SELECT) {
++            if (event.getAction() == KeyEvent.ACTION_UP) onBackPressed();
++            return true;
++        }
++        // Side menu open: the gamepad drives it (A falls back to DPAD_CENTER, B to BACK).
++        if (drawerLayout.isDrawerOpen(GravityCompat.START)) return super.dispatchKeyEvent(event);
+         return (!inputControlsView.onKeyEvent(event) && !winHandler.onKeyEvent(event) && xServer.keyboard.onKeyEvent(event)) ||
+                (!ExternalController.isGameController(event.getDevice()) && super.dispatchKeyEvent(event));
+     }
 diff --git a/app/src/main/java/com/winlator/core/AppUtils.java b/app/src/main/java/com/winlator/core/AppUtils.java
 index cac686e..3c7f69b 100644
 --- a/app/src/main/java/com/winlator/core/AppUtils.java
@@ -151,10 +164,74 @@ index 572d75c..0cf11fe 100644
      }
  
 diff --git a/app/src/main/java/com/winlator/widget/InputControlsView.java b/app/src/main/java/com/winlator/widget/InputControlsView.java
-index c9e7090..63ef987 100755
+index c9e7090..6da8280 100755
 --- a/app/src/main/java/com/winlator/widget/InputControlsView.java
 +++ b/app/src/main/java/com/winlator/widget/InputControlsView.java
-@@ -382,7 +382,7 @@ public class InputControlsView extends View {
+@@ -32,6 +32,8 @@ import com.winlator.xserver.XServer;
+ 
+ import java.io.IOException;
+ import java.io.InputStream;
++import java.util.HashMap;
++import java.util.HashSet;
+ import java.util.List;
+ import java.util.Timer;
+ import java.util.TimerTask;
+@@ -59,6 +61,10 @@ public class InputControlsView extends View {
+     private final Bitmap[] icons = new Bitmap[18];
+     private Timer mouseMoveTimer;
+     private final PointF mouseMoveOffset = new PointF();
++    // Gamepad inputs that hold each key down: a stick, the d-pad and a trigger can share one key, which goes up
++    // only when the last of them is released (and motion events no longer release keys held by buttons).
++    private final HashMap<Binding, HashSet<Integer>> heldBy = new HashMap<>();
++    private Binding backKey; // what the B binding (KEY_F12) pressed: Esc or Space
+     private boolean showTouchscreenControls = true;
+ 
+     public InputControlsView(Context context) {
+@@ -284,7 +290,7 @@ public class InputControlsView extends View {
+         }
+     }
+ 
+-    private void processJoystickInput(ExternalController controller) {
++    private void processJoystickInput(ExternalController controller, int deviceId) {
+         ExternalControllerBinding controllerBinding;
+         final int[] axes = {MotionEvent.AXIS_X, MotionEvent.AXIS_Y, MotionEvent.AXIS_Z, MotionEvent.AXIS_RZ, MotionEvent.AXIS_HAT_X, MotionEvent.AXIS_HAT_Y};
+         GamepadState state = controller.getGamepadState();
+@@ -293,13 +299,13 @@ public class InputControlsView extends View {
+         for (byte i = 0; i < axes.length; i++) {
+             if (Math.abs(values[i]) > ControlElement.STICK_DEAD_ZONE) {
+                 controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], Mathf.sign(values[i])));
+-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), true, values[i]);
++                if (controllerBinding != null) handleControllerInput(deviceId, controllerBinding, true, values[i]);
+             }
+             else {
+                 controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], (byte) 1));
+-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), false, values[i]);
++                if (controllerBinding != null) handleControllerInput(deviceId, controllerBinding, false, values[i]);
+                 controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], (byte)-1));
+-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), false, values[i]);
++                if (controllerBinding != null) handleControllerInput(deviceId, controllerBinding, false, values[i]);
+             }
+         }
+     }
+@@ -311,13 +317,14 @@ public class InputControlsView extends View {
+             if (controller != null && controller.updateStateFromMotionEvent(event)) {
+                 GamepadState state = controller.getGamepadState();
+                 ExternalControllerBinding controllerBinding;
++                // Analog triggers; digital ones arrive as key events and are tracked as a separate input.
+                 controllerBinding = controller.getControllerBinding(KeyEvent.KEYCODE_BUTTON_L2);
+-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), state.isPressed(ExternalController.IDX_BUTTON_L2));
++                if (controllerBinding != null) handleControllerInput(event.getDeviceId(), TRIGGER_AXIS | KeyEvent.KEYCODE_BUTTON_L2, controllerBinding.getBinding(), state.triggerL > 0.5f, 0);
+ 
+                 controllerBinding = controller.getControllerBinding(KeyEvent.KEYCODE_BUTTON_R2);
+-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), state.isPressed(ExternalController.IDX_BUTTON_R2));
++                if (controllerBinding != null) handleControllerInput(event.getDeviceId(), TRIGGER_AXIS | KeyEvent.KEYCODE_BUTTON_R2, controllerBinding.getBinding(), state.triggerR > 0.5f, 0);
+ 
+-                processJoystickInput(controller);
++                processJoystickInput(controller, event.getDeviceId());
+                 return true;
+             }
+         }
+@@ -382,7 +389,7 @@ public class InputControlsView extends View {
  
                      touchpadView.setPointerButtonLeftEnabled(true);
                      for (ControlElement element : profile.getElements()) {
@@ -163,6 +240,72 @@ index c9e7090..63ef987 100755
                          if (element.getBindingAt(0) == Binding.MOUSE_LEFT_BUTTON && element.getLastBindingIndex() == 0) {
                              touchpadView.setPointerButtonLeftEnabled(false);
                          }
+@@ -419,26 +426,47 @@ public class InputControlsView extends View {
+     }
+ 
+     public boolean onKeyEvent(KeyEvent event) {
+-        if (profile != null && event.getRepeatCount() == 0) {
++        if (profile != null) {
+             ExternalController controller = profile.getController(event.getDeviceId());
+             if (controller != null) {
+                 ExternalControllerBinding controllerBinding = controller.getControllerBinding(event.getKeyCode());
+                 if (controllerBinding != null) {
+                     int action = event.getAction();
+ 
+-                    if (action == KeyEvent.ACTION_DOWN) {
+-                        handleInputEvent(controllerBinding.getBinding(), true);
++                    if (action == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
++                        handleControllerInput(event.getDeviceId(), controllerBinding, true, 0);
+                     }
+                     else if (action == KeyEvent.ACTION_UP) {
+-                        handleInputEvent(controllerBinding.getBinding(), false);
++                        handleControllerInput(event.getDeviceId(), controllerBinding, false, 0);
+                     }
+-                    return true;
++                    return true; // key repeats too, or they would reach the X keyboard
+                 }
+             }
+         }
+         return false;
+     }
+ 
++    private static final int TRIGGER_AXIS = 0x4000;
++
++    private void handleControllerInput(int deviceId, ExternalControllerBinding controllerBinding, boolean isActionDown, float offset) {
++        handleControllerInput(deviceId, controllerBinding.getKeyCodeForAxis(), controllerBinding.getBinding(), isActionDown, offset);
++    }
++
++    private void handleControllerInput(int deviceId, int input, Binding binding, boolean isActionDown, float offset) {
++        if (binding == Binding.NONE) return;
++        if (binding.isGamepad() || binding.isMouseMove()) { // analog: every update counts
++            handleInputEvent(binding, isActionDown, offset);
++            return;
++        }
++        HashSet<Integer> inputs = heldBy.get(binding);
++        if (inputs == null) heldBy.put(binding, inputs = new HashSet<>());
++        boolean wasDown = !inputs.isEmpty();
++        int source = (deviceId << 16) ^ (input & 0xffff);
++        if (isActionDown) inputs.add(source);
++        else inputs.remove(source);
++        if (wasDown != !inputs.isEmpty()) handleInputEvent(binding, isActionDown, offset);
++    }
++
+     public void handleInputEvent(Binding[] bindings, boolean isActionDown) {
+         for (Binding binding : bindings) {
+             if (binding != Binding.NONE) handleInputEvent(binding, isActionDown, 0);
+@@ -450,6 +478,12 @@ public class InputControlsView extends View {
+     }
+ 
+     public void handleInputEvent(Binding binding, boolean isActionDown, float offset) {
++        if (binding == Binding.KEY_F12 && xServer != null) { // B: Esc in a race, Space elsewhere (Esc quits from the menus)
++            if (isActionDown) backKey = com.winlator.StuntLauncher.isRace(xServer) ? Binding.KEY_ESC : Binding.KEY_SPACE;
++            if (backKey != null) handleInputEvent(backKey, isActionDown, offset);
++            if (!isActionDown) backKey = null;
++            return;
++        }
+         if (binding.isGamepad()) {
+             WinHandler winHandler = xServer != null ? xServer.getWinHandler() : null;
+             GamepadState state = profile.getGamepadState();
 diff --git a/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java b/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java
 index 08fbf80..8d73585 100644
 --- a/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java
